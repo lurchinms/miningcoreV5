@@ -273,11 +273,11 @@ function t(n){
  document.getElementById('content').innerHTML='<div class=""loading"">Loading...</div>';
  loaders[n]();
 }
-async function a(u){var r=await fetch(u);return r.json()}
+async function a(u){var r=await fetch(u);if(r.status==401){location.href='/admin/login';throw new Error('login')}if(!r.ok)throw new Error(u+' '+r.status);return r.json()}
 function f(n,d=2){return n!=null?Number(n).toFixed(d):'0'}
 function h(v){if(!v)return'0 H/s';if(v>1e15)return f(v/1e15,2)+' PH/s';if(v>1e12)return f(v/1e12,2)+' TH/s';if(v>1e9)return f(v/1e9,2)+' GH/s';if(v>1e6)return f(v/1e6,2)+' MH/s';return f(v/1e3,2)+' KH/s'}
 function ago(d){if(!d)return'—';var s=(Date.now()-new Date(d).getTime())/1000;if(s<60)return Math.round(s)+'s ago';if(s<3600)return Math.round(s/60)+'m ago';if(s<86400)return Math.round(s/3600)+'h ago';return Math.round(s/86400)+'d ago'}
-function E(s){var t='';if(s=='Confirmed')t='badge-ok';else if(s=='Pending')t='badge-warn';return '<span class=""badge '+t+'"">'+s+'</span>';}
+function E(s){var t='',l=String(s||'').toLowerCase();if(l=='confirmed')t='badge-ok';else if(l=='pending')t='badge-warn';return '<span class=""badge '+t+'"">'+s+'</span>';}
 
 var loaders={
 overview:async function(){
@@ -294,9 +294,9 @@ overview:async function(){
  html+='<div class=""panel""><div class=""panel-header"">Recent Blocks</div><div class=""panel-body""><table><tr><th>Pool</th><th>Height</th><th>Status</th><th>Effort</th><th>Miner</th><th>When</th></tr>';
  try{
   var blocks=[],seen=new Set();
-  for(var p of d.pools||[]){var b=await a('/api/blocks?pool='+p.id+'&state=Confirmed,Pending&pageSize=8');for(var x of b||[]){var k=p.id+'-'+x.blockHeight;if(!seen.has(k)){seen.add(k);blocks.push({...x,pool:p.id});}}}
+  for(var p of d.pools||[]){var b=await a('/api/pools/'+p.id+'/blocks?pageSize=8');for(var x of b||[]){var k=p.id+'-'+x.blockHeight;if(!seen.has(k)){seen.add(k);blocks.push({...x,pool:p.id});}}}
   blocks.sort((a,b)=>new Date(b.created)-new Date(a.created));
-  for(var x of blocks.slice(0,10)){html+='<tr><td>'+x.pool+'</td><td>'+x.blockHeight+'</td><td>'+E(x.status)+'</td><td>'+f(x.effort||0,2)+'%</td><td>'+(x.miner||'—').slice(0,14)+'</td><td>'+ago(x.created)+'</td></tr>';}
+  for(var x of blocks.slice(0,10)){html+='<tr><td>'+x.pool+'</td><td>'+x.blockHeight+'</td><td>'+E(x.status)+'</td><td>'+f((x.effort||0)*100,1)+'%</td><td>'+(x.miner||'—').slice(0,14)+'</td><td>'+ago(x.created)+'</td></tr>';}
  }catch(e){}
  html+='</table></div></div>';
  document.getElementById('content').innerHTML=html;
@@ -320,11 +320,12 @@ miners:async function(){
  document.getElementById('content').innerHTML='<div class=""panel""><div class=""panel-header"">Search Miner</div><div class=""panel-body""><div class=""row""><div class=""col""><input id=""s"" placeholder=""Miner address or wallet..."" autofocus></div><div class=""col"" style=""flex:0""><button class=""btn btn-primary"" onclick=""search()"">Search</button></div></div><div id=""r""></div></div></div>';
  window.search=async function(){
   var addr=document.getElementById('s').value.trim();if(!addr)return;
-  var d=await a('/api/pools'),html='<table><tr><th>Pool</th><th>Hashrate</th><th>Shares/s</th></tr>';
+  var d=await a('/api/pools'),html='<table><tr><th>Pool</th><th>Hashrate</th><th>Shares/s</th><th>Workers</th><th>Pending</th><th>Paid</th></tr>';
   for(var p of d.pools||[]){
    try{var m=await a('/api/pools/'+p.id+'/miners/'+addr);
-    html+='<tr><td>'+p.id+'</td><td>'+h(m.hashrate||0)+'</td><td>'+f(m.sharesPerSecond,1)+'</td></tr>';
-   }catch(e){html+='<tr><td>'+p.id+'</td><td colspan=""2"" class=""muted"">Not found</td></tr>';}
+    var hr=0,sps=0,ws=(m.performance&&m.performance.workers)||{};for(var w in ws){hr+=ws[w].hashrate||0;sps+=ws[w].sharesPerSecond||0;}
+    html+='<tr><td>'+p.id+'</td><td>'+h(hr)+'</td><td>'+f(sps,2)+'</td><td>'+Object.keys(ws).length+'</td><td>'+f(m.pendingBalance||0,6)+'</td><td>'+f(m.totalPaid||0,6)+'</td></tr>';
+   }catch(e){html+='<tr><td>'+p.id+'</td><td colspan=""5"" class=""muted"">Not found</td></tr>';}
   }
   html+='</table>';document.getElementById('r').innerHTML=html||'<p>No data</p>';
  };
@@ -333,9 +334,9 @@ blocks:async function(){
  var d=await a('/api/pools'),html='';
  for(var p of d.pools||[]){
   try{
-   var b=await a('/api/blocks?pool='+p.id+'&state=Confirmed,Pending,Orphaned&pageSize=15');
+   var b=await a('/api/pools/'+p.id+'/blocks?pageSize=15');
    html+='<div class=""panel""><div class=""panel-header"">'+p.id+' <span style=""color:var(--muted);font-weight:400;font-size:12px"">last 15</span></div><div class=""panel-body""><table><tr><th>Height</th><th>Status</th><th>Effort</th><th>Miner</th><th>Reward</th><th>When</th></tr>';
-   for(var x of b||[]){html+='<tr><td>'+x.blockHeight+'</td><td>'+E(x.status)+'</td><td>'+f(x.effort||0,2)+'%</td><td>'+(x.miner||'—').slice(0,16)+'</td><td>'+f(x.reward||0,6)+'</td><td>'+ago(x.created)+'</td></tr>';}
+   for(var x of b||[]){html+='<tr><td>'+x.blockHeight+'</td><td>'+E(x.status)+'</td><td>'+f((x.effort||0)*100,1)+'%</td><td>'+(x.miner||'—').slice(0,16)+'</td><td>'+f(x.reward||0,6)+'</td><td>'+ago(x.created)+'</td></tr>';}
    html+='</table></div></div>';
   }catch(e){}
  }
@@ -356,7 +357,7 @@ payments:async function(){
 settings:async function(){
  var html='<div class=""grid2"">';
  html+='<div class=""panel""><div class=""panel-header"">Garbage Collection</div><div class=""panel-body"">';
- try{var g=await a('/api/admin/stats/gc');html+='<table><tr><th>Gen</th><th>Collections</th></tr><tr><td>Gen 0</td><td>'+g.gcGen0+'</td></tr><tr><td>Gen 1</td><td>'+g.gcGen1+'</td></tr><tr><td>Gen 2</td><td>'+g.gcGen2+'</td></tr></table><p style=""margin-top:12px""><strong>Managed Memory:</strong> '+(g.memAllocated/1024/1024).toFixed(1)+' MB</p><p style=""margin-top:8px""><button class=""btn btn-secondary"" onclick=""fetch('/api/admin/forcegc',{method:'POST'}).then(r=>alert(r.ok?'GC triggered':'Failed'))"">Force GC</button></p>';}catch(e){html+='<p class=""muted"">Unable to load GC stats</p>';}
+ try{var g=await a('/api/admin/stats/gc');html+='<table><tr><th>Gen</th><th>Collections</th></tr><tr><td>Gen 0</td><td>'+g.gcGen0+'</td></tr><tr><td>Gen 1</td><td>'+g.gcGen1+'</td></tr><tr><td>Gen 2</td><td>'+g.gcGen2+'</td></tr></table><p style=""margin-top:12px""><strong>Managed Memory:</strong> '+(g.memAllocated/1024/1024).toFixed(1)+' MB</p><p style=""margin-top:8px""><button class=""btn btn-secondary"" onclick=""fetch(\'/api/admin/forcegc\',{method:\'POST\'}).then(r=>alert(r.ok?\'GC triggered\':\'Failed\'))"">Force GC</button></p>';}catch(e){html+='<p class=""muted"">Unable to load GC stats</p>';}
  html+='</div></div>';
  html+='<div class=""panel""><div class=""panel-header"">System</div><div class=""panel-body""><table>';
  try{var d=await a('/api/pools');var n=d.pools[0].networkStats||{};
