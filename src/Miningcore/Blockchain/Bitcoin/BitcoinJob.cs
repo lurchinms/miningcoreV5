@@ -35,7 +35,6 @@ public class BitcoinJob
     protected BitcoinTemplate coin;
     private BitcoinTemplate.BitcoinNetworkParams networkParams;
     protected readonly ConcurrentDictionary<string, bool> submissions = new(StringComparer.OrdinalIgnoreCase);
-    public bool IsStealth { get; set; }
     protected uint256 blockTargetValue;
     protected byte[] coinbaseFinal;
     protected string coinbaseFinalHex;
