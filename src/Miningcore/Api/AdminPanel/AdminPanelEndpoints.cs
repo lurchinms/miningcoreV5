@@ -24,14 +24,17 @@ public static class AdminPanelEndpoints
 
         var apiBase = $"http://localhost:{apiPort}";
 
-        // Auth middleware — only protects /admin routes, not /api
+        // Auth middleware — everything except the login page needs a valid session, including the
+        // proxied /api routes: the proxy calls the API from localhost, which the admin IP whitelist trusts,
+        // so an unauthenticated /api/admin/* request would otherwise reach payment and logging controls.
         app.Use(async (ctx, next) =>
         {
-            if(ctx.Request.Path.StartsWithSegments("/admin") &&
-               !ctx.Request.Path.StartsWithSegments("/admin/login") &&
-               !IsAuthenticated(ctx, cfg))
+            if(!ctx.Request.Path.StartsWithSegments("/admin/login") && !IsAuthenticated(ctx, cfg))
             {
-                ctx.Response.Redirect("/admin/login");
+                if(ctx.Request.Path.StartsWithSegments("/api"))
+                    ctx.Response.StatusCode = 401;
+                else
+                    ctx.Response.Redirect("/admin/login");
                 return;
             }
             await next();
@@ -55,7 +58,7 @@ public static class AdminPanelEndpoints
         // === Login action ===
         admin.MapPost("/login", async (HttpContext ctx) =>
         {
-            var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var ip = ClientIp(ctx);
 
             if(loginTracker.TryGetValue(ip, out var entry) && entry.bannedUntil > DateTime.UtcNow)
             {
@@ -67,7 +70,8 @@ public static class AdminPanelEndpoints
             var form = await ctx.Request.ReadFormAsync();
             var password = form["password"].ToString();
 
-            if(!string.IsNullOrEmpty(cfg.Password) && password == cfg.Password)
+            if(!string.IsNullOrEmpty(cfg.Password) && CryptographicOperations.FixedTimeEquals(
+                   Encoding.UTF8.GetBytes(password), Encoding.UTF8.GetBytes(cfg.Password)))
             {
                 loginTracker.TryRemove(ip, out _);
 
@@ -79,6 +83,7 @@ public static class AdminPanelEndpoints
                 {
                     HttpOnly = true,
                     SameSite = SameSiteMode.Strict,
+                    Secure = ctx.Request.IsHttps || ctx.Request.Headers["X-Forwarded-Proto"] == "https",
                     MaxAge = TimeSpan.FromSeconds(cfg.SessionTimeout)
                 });
 
@@ -130,7 +135,7 @@ public static class AdminPanelEndpoints
         var tsStr = parts[1];
         var providedSig = parts[2];
 
-        if(ip != (ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown"))
+        if(ip != ClientIp(ctx))
             return false;
 
         if(long.TryParse(tsStr, out var ts))
@@ -145,6 +150,25 @@ public static class AdminPanelEndpoints
         return CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(providedSig),
             Encoding.UTF8.GetBytes(expectedSig));
+    }
+
+    /// <summary>
+    /// The visitor's address. When the panel sits behind a local reverse proxy (nginx on the same
+    /// host), use the X-Real-IP header it sets so sessions and login bans are per visitor.
+    /// </summary>
+    private static string ClientIp(HttpContext ctx)
+    {
+        var remote = ctx.Connection.RemoteIpAddress;
+
+        if(remote != null && System.Net.IPAddress.IsLoopback(remote.IsIPv4MappedToIPv6 ? remote.MapToIPv4() : remote))
+        {
+            var realIp = ctx.Request.Headers["X-Real-IP"].ToString();
+
+            if(!string.IsNullOrEmpty(realIp))
+                return realIp;
+        }
+
+        return remote?.ToString() ?? "unknown";
     }
 
     private static string Sign(string data, string key)
