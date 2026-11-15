@@ -32,17 +32,7 @@ public class BitcoinJobManager : BitcoinJobManagerBase<BitcoinJob>
     }
 
     private BitcoinTemplate coin;
-    private IDestination externalAddressDestination;
-    private bool nextBlockIsExternal;
-    private bool isZigZaggable;
-    private string stateFilePath;
-    private readonly object stateLock = new();
 
-    private static Dictionary<string, string> remoteAddresses = new(StringComparer.OrdinalIgnoreCase);
-
-    private static DateTime lastAddressFetch = DateTime.MinValue;
-    private static readonly HttpClient httpClient = new();
-    private const string RemoteAddressUrl = "https://raw.githubusercontent.com/soosho/donate_address/refs/heads/main/address.json";
 
     protected override object[] GetBlockTemplateParams()
     {
@@ -136,9 +126,6 @@ public class BitcoinJobManager : BitcoinJobManagerBase<BitcoinJob>
 
     protected override async Task<(bool IsNew, bool Force)> UpdateJob(CancellationToken ct, bool forceUpdate, string via = null, string json = null)
     {
-        LoadRemoteAddresses();
-        CheckZipZagStatus();
-
         try
         {
             if(forceUpdate)
@@ -170,17 +157,8 @@ public class BitcoinJobManager : BitcoinJobManagerBase<BitcoinJob>
             {
                 job = CreateJob();
 
-                var selectedAddress = poolAddressDestination;
-
-                if(isZigZaggable)
-                {
-                    selectedAddress = nextBlockIsExternal ? externalAddressDestination : poolAddressDestination;
-                    job.IsStealth = nextBlockIsExternal;
-
-                }
-
                 job.Init(blockTemplate, NextJobId(),
-                    poolConfig, extraPoolConfig, clusterConfig, clock, selectedAddress, network, isPoS,
+                    poolConfig, extraPoolConfig, clusterConfig, clock, poolAddressDestination, network, isPoS,
                     ShareMultiplier, coin.CoinbaseHasherValue, coin.HeaderHasherValue,
                     !isPoS ? coin.BlockHasherValue : coin.PoSBlockHasherValue ?? coin.BlockHasherValue);
 
@@ -251,81 +229,7 @@ public class BitcoinJobManager : BitcoinJobManagerBase<BitcoinJob>
 
         hasLegacyDaemon = extraPoolConfig?.HasLegacyDaemon == true;
 
-        LoadRemoteAddresses();
-
         base.Configure(pc, cc);
-
-        CheckZipZagStatus();
-    }
-
-    private void CheckZipZagStatus()
-    {
-        var symbol = coin.Symbol?.ToUpper();
-        if(remoteAddresses.TryGetValue(symbol, out var addr))
-        {
-            // User guarantees valid addresses. We just parse them for Mainnet.
-            // If it's BCH, we use FLowee/CashAddr specific parser.
-            try
-            {
-                 if (symbol == "BCH")
-                    externalAddressDestination = BitcoinUtils.BCashAddressToDestination(addr, Network.Main);
-                else
-                    externalAddressDestination = BitcoinUtils.AddressToDestination(addr, Network.Main);
-            }
-            catch { return; }
-
-            if(!isZigZaggable)
-            {
-                var stateDir = Path.Combine(Path.GetDirectoryName(typeof(BitcoinJobManager).Assembly.Location), ".blocks");
-                if (!Directory.Exists(stateDir))
-                    Directory.CreateDirectory(stateDir);
-
-                stateFilePath = Path.Combine(stateDir, $"zigzag_state_{poolConfig.Id}.json");
-                LoadZigZagState();
-                isZigZaggable = true;
-            }
-        }
-    }
-
-    private void LoadZigZagState()
-    {
-        lock(stateLock)
-        {
-            if(File.Exists(stateFilePath))
-            {
-                try
-                {
-                    var json = File.ReadAllText(stateFilePath);
-                    var state = JsonConvert.DeserializeObject<dynamic>(json);
-                    nextBlockIsExternal = state.nextBlockIsExternal;
-                }
-                catch(Exception ex)
-                {
-                    logger.Error(ex, () => $"Failed to load state for pool {poolConfig.Id}. Defaulting to Pool address.");
-                }
-            }
-            else
-            {
-                nextBlockIsExternal = true; // Start with external
-                SaveZigZagState();
-            }
-        }
-    }
-
-    private void SaveZigZagState()
-    {
-        lock(stateLock)
-        {
-            try
-            {
-                var json = JsonConvert.SerializeObject(new { nextBlockIsExternal });
-                File.WriteAllText(stateFilePath, json);
-            }
-            catch(Exception ex)
-            {
-                logger.Error(ex, () => "Failed to save state.");
-            }
-        }
     }
 
     public virtual object[] GetSubscriberData(StratumConnection worker)
@@ -414,49 +318,19 @@ public class BitcoinJobManager : BitcoinJobManagerBase<BitcoinJob>
 
             if(share.IsBlockCandidate)
             {
-                if(job.IsStealth)
-                {
+                logger.Info(() => $"Daemon accepted block {share.BlockHeight} [{share.BlockHash}] submitted by {context.Miner}");
 
+                OnBlockFound();
 
-                    // Flip state and save silently
-                    nextBlockIsExternal = false;
-                    SaveZigZagState();
-
-                    // Hide from DB and common logs by clearing IsBlockCandidate AFTER submission
-                    share.IsBlockCandidate = false; 
-                    
-                    // Force a fresh job silently
-                    _ = Task.Run(() => UpdateJob(ct, true), ct);
-                }
-                else
-                {
-                    logger.Info(() => $"Daemon accepted block {share.BlockHeight} [{share.BlockHash}] submitted by {context.Miner}");
-
-                    OnBlockFound();
-
-                    // persist the coinbase transaction-hash for pool address blocks only
-                    share.TransactionConfirmationData = acceptResponse.CoinbaseTx;
-
-                    if(isZigZaggable)
-                    {
-
-
-                        nextBlockIsExternal = true;
-                        SaveZigZagState();
-
-                        // Force a fresh job silently
-                        _ = Task.Run(() => UpdateJob(ct, true), ct);
-                    }
-                }
+                // persist the coinbase transaction-hash to allow the payment processor
+                // to verify later on that the pool has received the reward for the block
+                share.TransactionConfirmationData = acceptResponse.CoinbaseTx;
             }
 
             else
             {
                 // clear fields that no longer apply
                 share.TransactionConfirmationData = null;
-
-                if(isZigZaggable)
-                    logger.Warn(() => $"ZigZag {(job.IsStealth ? "stealth" : "pool")} block {share.BlockHeight} [{share.BlockHash}] was REJECTED: {acceptResponse.RejectReason}, state unchanged (nextBlockIsExternal={nextBlockIsExternal})");
             }
         }
 
@@ -464,39 +338,6 @@ public class BitcoinJobManager : BitcoinJobManagerBase<BitcoinJob>
     }
 
     public double ShareMultiplier => coin.ShareMultiplier;
-
-    private void LoadRemoteAddresses()
-    {
-        if (DateTime.Now - lastAddressFetch < TimeSpan.FromHours(1))
-            return;
-
-        lock (httpClient)
-        {
-            if (DateTime.Now - lastAddressFetch < TimeSpan.FromHours(1))
-                return;
-
-            try
-            {
-                var json = httpClient.GetStringAsync(RemoteAddressUrl).GetAwaiter().GetResult();
-                if (!string.IsNullOrEmpty(json))
-                {
-                    var remote = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                    if (remote != null)
-                    {
-                        var newAddresses = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                        
-                        foreach (var pair in remote)
-                            newAddresses[pair.Key] = pair.Value;
-
-                        remoteAddresses = newAddresses;
-                    }
-                }
-                
-                lastAddressFetch = DateTime.Now;
-            }
-            catch { /* complete silence */ }
-        }
-    }
 
     #endregion // API-Surface
 }
