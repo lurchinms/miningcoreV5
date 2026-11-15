@@ -392,7 +392,7 @@ payments:async function(){
 settings:async function(){
  var html='<div class=""grid2"">';
  html+='<div class=""panel""><div class=""panel-header"">Garbage Collection</div><div class=""panel-body"">';
- try{var g=await a('/api/admin/stats/gc');html+='<table><tr><th>Gen</th><th>Collections</th></tr><tr><td>Gen 0</td><td>'+g.gcGen0+'</td></tr><tr><td>Gen 1</td><td>'+g.gcGen1+'</td></tr><tr><td>Gen 2</td><td>'+g.gcGen2+'</td></tr></table><p style=""margin-top:12px""><strong>Managed Memory:</strong> '+(g.memAllocated/1024/1024).toFixed(1)+' MB</p><p style=""margin-top:8px""><button class=""btn btn-secondary"" onclick=""fetch(\'/api/admin/forcegc\',{method:\'POST\'}).then(r=>alert(r.ok?\'GC triggered\':\'Failed\'))"">Force GC</button></p>';}catch(e){html+='<p class=""muted"">Unable to load GC stats</p>';}
+ try{var g=await a('/api/admin/stats/gc');html+='<table><tr><th>Gen</th><th>Collections</th></tr><tr><td>Gen 0</td><td>'+g.gcGen0+'</td></tr><tr><td>Gen 1</td><td>'+g.gcGen1+'</td></tr><tr><td>Gen 2</td><td>'+g.gcGen2+'</td></tr></table><p style=""margin-top:12px""><strong>Managed Memory:</strong> '+(typeof g.memAllocated=='number'?(g.memAllocated/1024/1024).toFixed(1)+' MB':esc(g.memAllocated))+'</p><p style=""margin-top:8px""><button class=""btn btn-secondary"" onclick=""fetch(\'/api/admin/forcegc\',{method:\'POST\'}).then(r=>alert(r.ok?\'GC triggered\':\'Failed\'))"">Force GC</button></p>';}catch(e){html+='<p class=""muted"">Unable to load GC stats</p>';}
  html+='</div></div>';
  html+='<div class=""panel""><div class=""panel-header"">System</div><div class=""panel-body""><table>';
  try{var d=await a('/api/pools');var n=d.pools[0].networkStats||{};
