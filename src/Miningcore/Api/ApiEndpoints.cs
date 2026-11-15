@@ -253,7 +253,7 @@ public static class ApiEndpoints
         admin.MapGet("/wallets", async (
             HttpContext http,
             [FromServices] ClusterConfig clusterConfig,
-            [FromServices] JsonSerializerSettings serializerSettings,
+            [FromServices] Newtonsoft.Json.JsonSerializerSettings serializerSettings,
             [FromServices] Messaging.IMessageBus messageBus,
             [FromServices] IConnectionFactory cf) =>
         {
@@ -266,7 +266,7 @@ public static class ApiEndpoints
             HttpContext http,
             [FromBody] Admin.WalletAdmin.SendRequest request,
             [FromServices] ClusterConfig clusterConfig,
-            [FromServices] JsonSerializerSettings serializerSettings,
+            [FromServices] Newtonsoft.Json.JsonSerializerSettings serializerSettings,
             [FromServices] Messaging.IMessageBus messageBus,
             [FromServices] IConnectionFactory cf) =>
         {

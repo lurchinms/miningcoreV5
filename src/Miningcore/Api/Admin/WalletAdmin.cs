@@ -133,12 +133,12 @@ public class WalletAdmin
 
                     else
                     {
-                        var b = await rpc.ExecuteAsync<decimal>(logger, "getbalance", timeout.Token);
+                        var b = await rpc.ExecuteAsync<JToken>(logger, "getbalance", timeout.Token);
 
                         if(b.Error != null)
                             throw new Exception(b.Error.Message);
 
-                        info.Available = b.Response;
+                        info.Available = b.Response.Value<decimal>();
                     }
 
                     break;
@@ -147,17 +147,17 @@ public class WalletAdmin
                 case CoinFamily.Pearl:
                 {
                     var rpc = Rpc(pc, "wallet");
-                    var b = await rpc.ExecuteAsync<decimal>(logger, "getbalance", timeout.Token);
+                    var b = await rpc.ExecuteAsync<JToken>(logger, "getbalance", timeout.Token);
 
                     if(b.Error != null)
                         throw new Exception(b.Error.Message);
 
-                    info.Available = b.Response;
+                    info.Available = b.Response.Value<decimal>();
 
-                    var u = await rpc.ExecuteAsync<decimal>(logger, "getunconfirmedbalance", timeout.Token);
+                    var u = await rpc.ExecuteAsync<JToken>(logger, "getunconfirmedbalance", timeout.Token);
 
-                    if(u.Error == null)
-                        info.Pending = u.Response;
+                    if(u.Error == null && u.Response != null)
+                        info.Pending = u.Response.Value<decimal>();
 
                     break;
                 }
