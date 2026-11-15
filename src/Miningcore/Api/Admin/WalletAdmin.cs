@@ -162,6 +162,21 @@ public class WalletAdmin
                     break;
                 }
 
+                case CoinFamily.Cryptonote:
+                {
+                    var rpc = Rpc(pc, "wallet");
+                    var b = await rpc.ExecuteAsync<JToken>(logger, "get_balance", timeout.Token, new { account_index = 0 });
+
+                    if(b.Error != null)
+                        throw new Exception(b.Error.Message);
+
+                    var unit = CryptonoteUnit(pc);
+                    var total = b.Response.Value<decimal>("balance") / unit;
+                    info.Available = b.Response.Value<decimal>("unlocked_balance") / unit;
+                    info.Pending = total - info.Available;
+                    break;
+                }
+
                 case CoinFamily.Zano:
                 {
                     var rpc = Rpc(pc, "wallet");
@@ -234,6 +249,7 @@ public class WalletAdmin
                 CoinFamily.Bitcoin or CoinFamily.Progpow => await SendBitcoinAsync(pc, address, amount, ct),
                 CoinFamily.Pearl => await SendPearlAsync(pc, address, amount, ct),
                 CoinFamily.Zano => await SendZanoAsync(pc, address, amount, ct),
+                CoinFamily.Cryptonote => await SendCryptonoteAsync(pc, address, amount, ct),
                 CoinFamily.Quantus => await SendQuantusAsync(pc, address, amount, ct),
                 _ => throw new InvalidOperationException($"sending not supported for {pc.Template.Family}")
             };
@@ -345,6 +361,31 @@ public class WalletAdmin
         return res.Response?.TxHash;
     }
 
+    private async Task<string> SendCryptonoteAsync(PoolConfig pc, string address, decimal amount, CancellationToken ct)
+    {
+        var rpc = Rpc(pc, "wallet");
+
+        var va = await rpc.ExecuteAsync<JToken>(logger, "validate_address", ct, new { address });
+
+        if(va.Error != null || va.Response?.Value<bool>("valid") != true)
+            throw new ArgumentException($"Not a valid {pc.Template.Symbol} address");
+
+        var request = new
+        {
+            destinations = new[] { new { address, amount = (ulong) Math.Floor(amount * CryptonoteUnit(pc)) } },
+            account_index = 0,
+            priority = 0,
+            get_tx_key = true
+        };
+
+        var res = await rpc.ExecuteAsync<JToken>(logger, "transfer", ct, request);
+
+        if(res.Error != null)
+            throw new InvalidOperationException(res.Error.Message);
+
+        return res.Response?.Value<string>("tx_hash");
+    }
+
     private async Task<string> SendQuantusAsync(PoolConfig pc, string address, decimal amount, CancellationToken ct)
     {
         if(!IsValidQuantusAddress(address))
@@ -408,6 +449,12 @@ public class WalletAdmin
               ?? throw new InvalidOperationException($"no {category} daemon configured for {pc.Id}");
 
         return new RpcClient(ep, serializerSettings, messageBus, pc.Id);
+    }
+
+    private static decimal CryptonoteUnit(PoolConfig pc)
+    {
+        var unit = pc.Template.As<CryptonoteCoinTemplate>()?.SmallestUnit ?? 0;
+        return unit > 0 ? unit : 1_000_000_000_000m;
     }
 
     private static decimal ZanoUnit(PoolConfig pc)
