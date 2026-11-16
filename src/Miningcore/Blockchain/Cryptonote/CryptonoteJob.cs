@@ -29,6 +29,7 @@ public class CryptonoteJob
 
         hashFunc = hashFuncs[coin.Hash];
         blobType = coin.BlobType;
+        isQrl = coin.IsQrl;
     }
 
     protected delegate void HashFunc(string realm, string seedHex, ReadOnlySpan<byte> data, Span<byte> result, ulong height);
@@ -70,6 +71,10 @@ public class CryptonoteJob
     private readonly HashFunc hashFunc;
     private readonly int blobType;
 
+    // QRL templates are already the hashing blob: no Cryptonote blob conversion, the nonce goes at
+    // offset 39 and the same blob is submitted as the block (as qrl's cryptonote-nodejs-pool does)
+    private readonly bool isQrl;
+
     private void PrepareBlobTemplate(byte[] instanceId)
     {
         blobTemplate = BlockTemplate.Blob.HexToByteArray();
@@ -86,6 +91,9 @@ public class CryptonoteJob
         // inject extranonce (big-endian) at the beginning of the reserved area
         var bytes = BitConverter.GetBytes(workerExtraNonce.ToBigEndian());
         bytes.CopyTo(blob[BlockTemplate.ReservedOffset..]);
+
+        if(isQrl)
+            return blob.ToHexString();
 
         return CryptonoteBindings.ConvertBlob(blob, blobTemplate.Length, blobType).ToHexString();
     }
@@ -162,7 +170,7 @@ public class CryptonoteJob
         bytes.CopyTo(blob[CryptonoteConstants.BlobNonceOffset..]);
 
         // convert
-        var blobConverted = CryptonoteBindings.ConvertBlob(blob, blobTemplate.Length, blobType);
+        var blobConverted = isQrl ? blob.ToArray() : CryptonoteBindings.ConvertBlob(blob, blobTemplate.Length, blobType);
         if(blobConverted == null)
             throw new StratumException(StratumError.MinusOne, "malformed blob");
 
@@ -212,7 +220,9 @@ public class CryptonoteJob
             Span<byte> blockHash = stackalloc byte[32];
 
             // Not all Cryptonote coins are equal
-            if(blobType == ZephyrConstants.BlobType || blobType == ScalaConstants.ScalaBlobType)
+            if(isQrl)
+                headerHash.CopyTo(blockHash);
+            else if(blobType == ZephyrConstants.BlobType || blobType == ScalaConstants.ScalaBlobType)
                 CryptonoteBindings.GetBlockId(blob, blockHash, blobType);
             else
                 ComputeBlockHash(blobConverted, blockHash);
