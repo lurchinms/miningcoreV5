@@ -387,6 +387,9 @@ public class CryptonoteJobManager : JobManagerBase<CryptonoteJob>
         if(string.IsNullOrEmpty(address))
             return false;
 
+        if(poolConfig.Template.As<CryptonoteCoinTemplate>().IsQrl)
+            return QrlAddress.IsValid(address);
+
         var addressPrefix = CryptonoteBindings.DecodeAddress(address);
         var addressIntegratedPrefix = CryptonoteBindings.DecodeIntegratedAddress(address);
         var coin = poolConfig.Template.As<CryptonoteCoinTemplate>();
@@ -634,6 +637,14 @@ public class CryptonoteJobManager : JobManagerBase<CryptonoteJob>
             networkType = info.IsTestnet ? CryptonoteNetworkType.Test : CryptonoteNetworkType.Main;
 
         // address validation
+        if(coin.IsQrl)
+        {
+            if(!QrlAddress.IsValid(poolConfig.Address))
+                throw new PoolStartupException($"Invalid QRL pool address '{poolConfig.Address}'", poolConfig.Id);
+        }
+
+        else
+        {
         poolAddressBase58Prefix = CryptonoteBindings.DecodeAddress(poolConfig.Address);
         if(poolAddressBase58Prefix == 0)
             throw new PoolStartupException("Unable to decode pool-address", poolConfig.Id);
@@ -654,6 +665,7 @@ public class CryptonoteJobManager : JobManagerBase<CryptonoteJob>
                 if(poolAddressBase58Prefix != coin.AddressPrefixTestnet)
                     throw new PoolStartupException($"Invalid pool address prefix. Expected {coin.AddressPrefixTestnet}, got {poolAddressBase58Prefix}", poolConfig.Id);
                 break;
+        }
         }
 
         // update stats

@@ -501,6 +501,16 @@ public enum CryptonightHashType
 
 public partial class CryptonoteCoinTemplate : CoinTemplate
 {
+    /// <summary>
+    /// "qrl" for QRL: 'Q'+hex addresses (with checksum) instead of Cryptonote base58, and block
+    /// orphan status taken from the daemon adapter instead of comparing Cryptonote block ids
+    /// </summary>
+    [JsonProperty("addressFormat")]
+    public string AddressFormat { get; set; }
+
+    [JsonIgnore]
+    public bool IsQrl => string.Equals(AddressFormat, "qrl", StringComparison.OrdinalIgnoreCase);
+
     [JsonProperty(Order = -7, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
     [DefaultValue(CryptonoteSubfamily.None)]
     [JsonConverter(typeof(StringEnumConverter), true)]

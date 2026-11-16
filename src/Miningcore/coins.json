@@ -5998,7 +5998,7 @@
     "explorerTxLink": "http://explorer.swippcoin.com/tx/{0}",
     "explorerAccountLink": "http://explorer.swippcoin.com/address/{0}"
   },
-    "tarcoin": {
+  "tarcoin": {
     "name": "TarCoin",
     "canonicalName": "TarCoin",
     "symbol": "TAR",
@@ -8600,5 +8600,22 @@
     "auditableAddressIntegratedPrefix": 35401,
     "explorerBlockLink": "https://explorer.zano.org/block/$hash$",
     "explorerTxLink": "https://explorer.zano.org/transaction/{0}"
+  },
+  "qrl": {
+    "name": "QRL",
+    "canonicalName": "Quantum Resistant Ledger",
+    "symbol": "QRL",
+    "family": "cryptonote",
+    "website": "https://www.theqrl.org/",
+    "market": "https://coinmarketcap.com/currencies/quantum-resistant-ledger/",
+    "github": "https://github.com/theQRL/QRL",
+    "hash": "randomx",
+    "hashVariant": 0,
+    "blobType": 0,
+    "smallestUnit": 1000000000,
+    "addressFormat": "qrl",
+    "explorerBlockLink": "https://explorer.theqrl.org/block/$height$",
+    "explorerTxLink": "https://explorer.theqrl.org/tx/{0}",
+    "explorerAccountLink": "https://explorer.theqrl.org/a/{0}"
   }
 }
