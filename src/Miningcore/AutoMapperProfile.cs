@@ -60,7 +60,9 @@ public class AutoMapperProfile : Profile
         CreateMap<MinerSettings, Api.Responses.MinerSettings>();
         CreateMap<Payment, Api.Responses.Payment>();
         CreateMap<BalanceChange, Api.Responses.BalanceChange>();
-        CreateMap<PoolPaymentProcessingConfig, Api.Responses.ApiPoolPaymentProcessingConfig>();
+        // never expose paymentProcessing.extra (wallet passphrases, RPC secrets)
+        CreateMap<PoolPaymentProcessingConfig, Api.Responses.ApiPoolPaymentProcessingConfig>()
+            .ForMember(d => d.Extra, o => o.Ignore());
 
         CreateMap<MinerStats, Api.Responses.MinerStats>()
             .ForMember(dest => dest.LastPayment, opt => opt.Ignore())
