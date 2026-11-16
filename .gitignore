@@ -219,3 +219,6 @@ config.json
 pools.json
 *.o
 *.so
+
+__pycache__/
+*.pyc

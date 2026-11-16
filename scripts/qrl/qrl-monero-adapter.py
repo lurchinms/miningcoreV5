@@ -61,12 +61,19 @@ def proxy_api(method, **args):
         return json.loads(r.read())
 
 
+MAX_TIP_AGE = int(os.environ.get("QRL_MAX_TIP_AGE", "600"))
+
+
 def node_synced():
+    """QRL reports state SYNCED while still catching up, so also require a recent chain tip."""
     try:
         state = proxy_api("GetNodeState").get("info", {}).get("state", "")
-        return state == "SYNCED"
+        if state != "SYNCED":
+            return False
+        tip = proxy_rpc("getlastblockheader", {})["block_header"]
+        return time.time() - int(tip["timestamp"]) < MAX_TIP_AGE
     except Exception as e:  # noqa
-        log(f"GetNodeState failed: {e}")
+        log(f"sync check failed: {e}")
         return False
 
 
