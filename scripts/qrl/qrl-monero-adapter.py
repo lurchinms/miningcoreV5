@@ -156,6 +156,9 @@ def get_balance(params):
 
 
 def _transfer(params):
+    if not isinstance(params, dict) or not params.get("destinations"):
+        # Miningcore probes transfer_split support with an empty call at startup
+        raise RpcError(-32602, "destinations required")
     dests = [{"address": d["address"], "amount": int(d["amount"])} for d in params["destinations"]]
     res = proxy_rpc("transfer", {"destinations": dests, "fee": TX_FEE, "mixin": 0, "unlock_time": 0})
     log(f"transfer {len(dests)} outputs, total {sum(d['amount'] for d in dests)} shor -> {res.get('tx_hash')}")
@@ -183,6 +186,10 @@ METHODS["getbalance"] = get_balance
 
 
 class Handler(BaseHTTPRequestHandler):
+    # keep connections open: Miningcore reuses pooled HTTP connections and fails a request if the server has
+    # quietly closed the socket (HTTP/1.0 behaviour)
+    protocol_version = "HTTP/1.1"
+
     def do_POST(self):
         try:
             req = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
@@ -214,4 +221,7 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     log(f"QRL adapter on {HOST}:{PORT} -> {PROXY}, pool {POOL_ADDR[:12]}...")
-    ThreadingHTTPServer((HOST, int(PORT)), Handler).serve_forever()
+    class Server(ThreadingHTTPServer):
+        daemon_threads = True
+        request_queue_size = 128   # default 5 drops connections when both QRL pools poll at once
+    Server((HOST, int(PORT)), Handler).serve_forever()
