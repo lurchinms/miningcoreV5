@@ -4761,6 +4761,37 @@
     "explorerTxLink": "https://explorer.griffion.org/transaction/{0}",
     "explorerAccountLink": "https://explorer.griffion.org/address/{0}"
   },
+  "auroraborealis": {
+    "name": "Aurora Borealis",
+    "canonicalName": "Aurora Borealis Coin",
+    "symbol": "ABRS",
+    "family": "progpow",
+    "website": "https://auroraborealiscoin.com/",
+    "market": "",
+    "twitter": "",
+    "telegram": "",
+    "discord": "",
+    "github": "https://github.com/auroraborealiscoin/auroraborealis",
+    "coinbaseHasher": {
+      "hash": "sha256d"
+    },
+    "headerHasher": {
+      "hash": "sha256d"
+    },
+    "blockHasher": {
+      "hash": "reverse",
+      "args": [
+        {
+          "hash": "sha256d"
+        }
+      ]
+    },
+    "shareMultiplier": 1,
+    "progpower": "kawpow",
+    "explorerBlockLink": "https://explorer.auroraborealiscoin.com/block/$hash$",
+    "explorerTxLink": "https://explorer.auroraborealiscoin.com/tx/{0}",
+    "explorerAccountLink": "https://explorer.auroraborealiscoin.com/address/{0}"
+  },
   "ravencoin": {
     "name": "Ravencoin",
     "canonicalName": "Ravencoin",
