@@ -425,6 +425,14 @@ public class Program : BackgroundService
         var coinTemplates = LoadCoinTemplates();
         logger.Info($"{coinTemplates.Keys.Count} coins loaded from '{string.Join(", ", clusterConfig.CoinTemplates)}'");
 
+        // Pools start side by side, and one pool may look at another (merged mining reads its aux pool's coin).
+        // Give every pool its coin before any of them starts.
+        foreach(var config in clusterConfig.Pools.Where(x => x.Enabled))
+        {
+            if(coinTemplates.TryGetValue(config.Coin, out var template))
+                config.Template = template;
+        }
+
         var tasks = clusterConfig.Pools
             .Where(config => config.Enabled)
             .Select(config => RunPool(config, coinTemplates, ct));
