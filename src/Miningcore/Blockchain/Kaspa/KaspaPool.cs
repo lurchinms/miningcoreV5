@@ -194,11 +194,6 @@ public class KaspaPool : PoolBase
 
             var minerJobParams = CreateWorkerJob(connection);
 
-            // The reference Kaspa stratum bridge announces the extranonce once the miner is authorized.
-            // Clients that only listen for it at that point (rental proxies) would otherwise never get one.
-            if(!manager.ValidateIsGodMiner(context.UserAgent))
-                await connection.NotifyAsync(KaspaStratumMethods.SetExtraNonce, manager.GetSubscriberData(connection));
-
             // send intial update
             await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { context.Difficulty });
             await SendJob(connection, context, minerJobParams);
