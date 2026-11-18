@@ -84,6 +84,17 @@ public class ShareRecorder : BackgroundService
 
     private async Task PersistSharesCoreAsync(IList<Share> shares)
     {
+        // A miner can put anything in its name or agent string. One NUL character makes PostgreSQL
+        // refuse the whole batch, which would drop every other miner's shares in it too.
+        foreach(var share in shares)
+        {
+            share.Miner = Clean(share.Miner);
+            share.Worker = Clean(share.Worker);
+            share.UserAgent = Clean(share.UserAgent);
+            share.IpAddress = Clean(share.IpAddress);
+            share.Source = Clean(share.Source);
+        }
+
         await cf.RunTx(async (con, tx) =>
         {
             // Insert shares
@@ -106,6 +117,14 @@ public class ShareRecorder : BackgroundService
                     logger.Warn(()=> $"Block found for unknown pool {share.PoolId}");
             }
         });
+    }
+
+    private static string Clean(string value)
+    {
+        if(string.IsNullOrEmpty(value) || !value.Any(char.IsControl))
+            return value;
+
+        return new string(value.Where(c => !char.IsControl(c)).ToArray());
     }
 
     private static void OnPolicyRetry(Exception ex, TimeSpan timeSpan, int retry, object context)
