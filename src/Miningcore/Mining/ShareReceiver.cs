@@ -298,7 +298,10 @@ public class ShareReceiver : BackgroundService
             if(pool.NetworkStats != null)
             {
                 pool.NetworkStats.BlockHeight = (ulong) share.BlockHeight;
-                pool.NetworkStats.NetworkDifficulty = share.NetworkDifficulty;
+                // Pearl shares carry the network difficulty on the share scale, 65536x the node's own figure
+                // that the pool reports everywhere else. Keep the node's, so the value doesn't flip while miners are relayed in.
+                if(pool.Config.Template.Family != CoinFamily.Pearl)
+                    pool.NetworkStats.NetworkDifficulty = share.NetworkDifficulty;
 
                 if(poolContext.BlockHeight != share.BlockHeight)
                 {
