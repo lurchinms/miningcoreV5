@@ -74,6 +74,8 @@ public class ShareRecorder : BackgroundService
     private const int RetryCount = 3;
     private const string PolicyContextKeyShares = "share";
     private bool notifiedAdminOnPolicyFallback = false;
+    private readonly SemaphoreSlim fileLock = new(1, 1);
+    private DateTime lastFallback = DateTime.MinValue;
 
     private async Task PersistSharesAsync(IList<Share> shares)
     {
@@ -145,31 +147,92 @@ public class ShareRecorder : BackgroundService
     {
         var shares = (IList<Share>) context[PolicyContextKeyShares];
 
-        try
-        {
-            await using(var stream = new FileStream(recoveryFilename, FileMode.Append, FileAccess.Write))
-            {
-                await using(var writer = new StreamWriter(stream, new UTF8Encoding(false)))
-                {
-                    if(stream.Length == 0)
-                        WriteRecoveryFileheader(writer);
+        // One share the database refuses must not cost the others in its batch
+        var unsaved = await PersistOneByOneAsync(shares);
 
-                    foreach(var share in shares)
-                    {
-                        var json = JsonConvert.SerializeObject(share, jsonSerializerSettings);
-                        await writer.WriteLineAsync(json);
-                    }
-                }
+        if(unsaved.Count == 0)
+            return;
+
+        if(unsaved.Count < shares.Count)
+            logger.Warn(() => $"{unsaved.Count} of {shares.Count} shares could not be saved and go to the recovery file; the others were saved one by one");
+
+        await AppendToFileAsync(recoveryFilename, unsaved, true);
+        lastFallback = DateTime.UtcNow;
+
+        NotifyAdminOnPolicyFallback();
+    }
+
+    /// <summary>
+    /// Save shares one at a time. Returns the ones that could not be saved.
+    /// Gives up early when nothing gets through at all, which means the database itself is unreachable.
+    /// </summary>
+    private async Task<List<Share>> PersistOneByOneAsync(IList<Share> shares)
+    {
+        var unsaved = new List<Share>();
+
+        if(shares.Count <= 1)
+        {
+            unsaved.AddRange(shares);
+            return unsaved;
+        }
+
+        var saved = 0;
+
+        for(var i = 0; i < shares.Count; i++)
+        {
+            if(saved == 0 && unsaved.Count >= 3)
+            {
+                unsaved.AddRange(shares.Skip(i));
+                break;
             }
 
-            NotifyAdminOnPolicyFallback();
+            try
+            {
+                await PersistSharesCoreAsync(new List<Share> { shares[i] });
+                saved++;
+            }
+
+            catch(Exception ex)
+            {
+                if(unsaved.Count == 0)
+                    logger.Warn(() => $"Share of {shares[i].Miner} for pool {shares[i].PoolId} could not be saved: {ex.Message}");
+
+                unsaved.Add(shares[i]);
+            }
+        }
+
+        return unsaved;
+    }
+
+    private async Task AppendToFileAsync(string filename, IList<Share> shares, bool withHeader)
+    {
+        try
+        {
+            await fileLock.WaitAsync();
+
+            try
+            {
+                await using var stream = new FileStream(filename, FileMode.Append, FileAccess.Write);
+                await using var writer = new StreamWriter(stream, new UTF8Encoding(false));
+
+                if(withHeader && stream.Length == 0)
+                    WriteRecoveryFileheader(writer);
+
+                foreach(var share in shares)
+                    await writer.WriteLineAsync(JsonConvert.SerializeObject(share, jsonSerializerSettings));
+            }
+
+            finally
+            {
+                fileLock.Release();
+            }
         }
 
         catch(Exception ex)
         {
             if(!hasLoggedPolicyFallbackFailure)
             {
-                logger.Fatal(ex, "Fatal error during policy fallback execution. Share(s) will be lost!");
+                logger.Fatal(ex, $"Could not write to {filename}. Share(s) will be lost!");
                 hasLoggedPolicyFallbackFailure = true;
             }
         }
@@ -243,8 +306,14 @@ public class ShareRecorder : BackgroundService
 
                         catch(Exception ex)
                         {
-                            logger.Error(ex, () => $"Unable to import a batch of {shares.Count} shares");
-                            failCount += shares.Count;
+                            logger.Error(ex, () => $"Unable to import a batch of {shares.Count} shares, retrying them one by one");
+
+                            var unsaved = await PersistOneByOneAsync(shares);
+                            successCount += shares.Count - unsaved.Count;
+                            failCount += unsaved.Count;
+
+                            if(unsaved.Count > 0)
+                                await AppendToFileAsync(filename + ".failed", unsaved, false);
 
                             // start the next batch clean, or no later share would ever be imported
                             shares.Clear();
@@ -273,8 +342,14 @@ public class ShareRecorder : BackgroundService
 
                     catch(Exception ex)
                     {
-                        logger.Error(ex, () => "Unable to import shares");
-                        failCount++;
+                        logger.Error(ex, () => $"Unable to import the last {shares.Count} shares, retrying them one by one");
+
+                        var unsaved = await PersistOneByOneAsync(shares);
+                        successCount += shares.Count - unsaved.Count;
+                        failCount += unsaved.Count;
+
+                        if(unsaved.Count > 0)
+                            await AppendToFileAsync(filename + ".failed", unsaved, false);
                     }
                 }
             }
@@ -282,7 +357,7 @@ public class ShareRecorder : BackgroundService
             if(failCount == 0)
                 logger.Info(() => $"Successfully imported {successCount} shares");
             else
-                logger.Warn(() => $"Successfully imported {successCount} shares with {failCount} failures");
+                logger.Warn(() => $"Imported {successCount} shares; {failCount} could not be imported and are kept in {filename}.failed");
         }
 
         catch(FileNotFoundException)
@@ -293,11 +368,11 @@ public class ShareRecorder : BackgroundService
 
     private void NotifyAdminOnPolicyFallback()
     {
-        if(clusterConfig.Notifications?.Admin?.Enabled == true &&
-           clusterConfig.Notifications?.Admin?.NotifyPaymentSuccess == true &&
-           !notifiedAdminOnPolicyFallback)
+        if(!notifiedAdminOnPolicyFallback)
         {
             notifiedAdminOnPolicyFallback = true;
+
+            logger.Error(() => $"Shares could not be saved to the database and are being kept in {recoveryFilename}. They are replayed automatically; if this message returns, find out why the database refuses them.");
 
             messageBus.SendMessage(new AdminNotification("Share Recorder Policy Fallback",
                 $"The Share Recorder's Policy Fallback has been engaged. Check share recovery file {recoveryFilename}."));
@@ -309,6 +384,10 @@ public class ShareRecorder : BackgroundService
         recoveryFilename = !string.IsNullOrEmpty(clusterConfig.ShareRecoveryFile)
             ? clusterConfig.ShareRecoveryFile
             : "recovered-shares.txt";
+
+        // never depend on the directory the pool happened to be started from
+        if(!Path.IsPathRooted(recoveryFilename))
+            recoveryFilename = Path.Combine(AppContext.BaseDirectory, recoveryFilename);
     }
 
     private void BuildFaultHandlingPolicy()
@@ -344,9 +423,71 @@ public class ShareRecorder : BackgroundService
             Policy.WrapAsync(fallback, breaker, retry));
     }
 
+    /// <summary>
+    /// Put shares that were set aside back into the database without anyone having to run a command:
+    /// shortly after start, and again whenever the file reappears and has been quiet for a while.
+    /// </summary>
+    private async Task ReplayRecoveryFileAsync(CancellationToken ct)
+    {
+        // "-rs <file>" is the manual way of doing the same thing. Stay out of its way.
+        if(Environment.GetCommandLineArgs().Any(x => x is "-rs" or "--recover-shares"))
+            return;
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromMinutes(1), ct);
+
+            while(!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    var file = new FileInfo(recoveryFilename);
+
+                    if(file.Exists && file.Length > 0 && DateTime.UtcNow - lastFallback > TimeSpan.FromMinutes(5))
+                    {
+                        var replay = $"{recoveryFilename}.replay-{DateTime.UtcNow:yyyyMMddHHmmss}";
+
+                        await fileLock.WaitAsync(ct);
+
+                        try
+                        {
+                            File.Move(recoveryFilename, replay);
+                        }
+
+                        finally
+                        {
+                            fileLock.Release();
+                        }
+
+                        notifiedAdminOnPolicyFallback = false;
+
+                        logger.Info(() => $"Replaying shares that were set aside ({replay})");
+                        await RecoverSharesAsync(replay);
+
+                        File.Move(replay, replay.Replace(".replay-", ".done-"));
+                    }
+                }
+
+                catch(Exception ex) when(ex is not OperationCanceledException)
+                {
+                    logger.Error(ex, () => "Could not replay the share recovery file");
+                }
+
+                await Task.Delay(TimeSpan.FromMinutes(5), ct);
+            }
+        }
+
+        catch(OperationCanceledException)
+        {
+            // shutting down
+        }
+    }
+
     protected override Task ExecuteAsync(CancellationToken ct)
     {
         logger.Info(() => "Online");
+
+        _ = Task.Run(() => ReplayRecoveryFileAsync(ct), ct);
 
         return messageBus.Listen<Share>()
             .ObserveOn(TaskPoolScheduler.Default)
