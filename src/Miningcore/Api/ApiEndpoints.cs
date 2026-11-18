@@ -40,8 +40,12 @@ public static class ApiEndpoints
     // Bitcoin-family shares are stored as stratumDifficulty / ShareMultiplier and the network
     // difficulty comes from the block target, so both are already in the same units.
     // Multiplying by ShareMultiplier (65536 for scrypt) inflated LTC/DOGE effort 65536x.
-    private static double EffortShareConst(IMiningPool pool) =>
-        pool is Blockchain.Bitcoin.BitcoinPool ? 1d : pool.ShareMultiplier;
+    private static double EffortShareConst(IMiningPool pool) => pool switch
+    {
+        Blockchain.Bitcoin.BitcoinPool => 1d,
+        Blockchain.Kaspa.KaspaPool kaspa => kaspa.EffortShareConst,
+        _ => pool.ShareMultiplier
+    };
 
     public static void MapMiningcoreApi(this IEndpointRouteBuilder app)
     {

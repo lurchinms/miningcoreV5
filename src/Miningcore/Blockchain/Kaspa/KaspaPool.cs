@@ -373,6 +373,14 @@ public class KaspaPool : PoolBase
 
     public override double ShareMultiplier => coin.ShareMultiplier;
 
+    /// <summary>
+    /// Factor that turns stored share difficulty into hashes comparable with the stored network
+    /// difficulty, the same factor KaspaPayoutHandler.AdjustBlockEffort applies to block effort.
+    /// </summary>
+    public double EffortShareConst => ShareMultiplier * (coin.Symbol == "SPR"
+        ? SpectreConstants.Pow2xDiff1TargetNumZero * (double) SpectreConstants.MinHash
+        : KaspaConstants.Pow2xDiff1TargetNumZero * (double) KaspaConstants.MinHash);
+
     #region Overrides
 
     public override void Configure(PoolConfig pc, ClusterConfig cc)
