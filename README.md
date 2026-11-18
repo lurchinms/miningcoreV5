@@ -221,12 +221,7 @@ Issues and pull requests are welcome. Base pull requests on `main`.
 
 Built on the work of [Oliver Weichhold](https://github.com/oliverw/miningcore) (original Miningcore) and
 [soosho](https://github.com/soosho/miningcore) (Miningcore Community Edition). If this software is useful to you,
-consider supporting them:
-
-**soosho (MCCE):** [GitHub Sponsors](https://github.com/sponsors/soosho)
-- BTC `1AqqFf13RcfGbwa4GQGQV27T6HL1r35WVk`
-- LTC `La2a5YZH3dDJh1L8tTRKk3zz2zUwtYfeHj`
-- DOGE `DCMuGWx62HoW6mKVsvfkvuqqqYpsWevfod`
+consider supporting the original author:
 
 **oliverw (original Miningcore):**
 - BTC `16xvkGfG9nrJSKKo5nGWphP8w4hr2ZzVuw`

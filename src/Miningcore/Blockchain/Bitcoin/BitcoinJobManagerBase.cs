@@ -574,7 +574,6 @@ public abstract class BitcoinJobManagerBase<TJob> : JobManagerBase<TJob>
             poolAddressDestination = new PubKey(poolConfig.PubKey ?? validateAddressResponse.PubKey);
         }
 
-        // Payment-processing setup (address ownership check removed - not needed with zigzag)
 
         // update stats
         BlockchainStats.NetworkType = network.Name;
