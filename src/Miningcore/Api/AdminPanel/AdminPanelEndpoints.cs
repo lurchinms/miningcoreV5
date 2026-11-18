@@ -400,7 +400,7 @@ settings:async function(){
   html+='<tr><td>Difficulty</td><td>'+(n.networkDifficulty?f(n.networkDifficulty/1e9,1)+'G':'—')+'</td></tr>';
   html+='<tr><td>Block Height</td><td>'+n.blockHeight+'</td></tr>';
  }catch(e){}
- html+='<tr><td>Build</td><td>Miningcore by MinersHaven, .NET 8</td></tr>';
+ html+='<tr><td>Build</td><td>Miningcore by MinersHaven</td></tr>';
  html+='</table></div></div>';
  html+='</div>';
  document.getElementById('content').innerHTML=html;

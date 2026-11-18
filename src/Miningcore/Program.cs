@@ -685,7 +685,7 @@ public class Program : BackgroundService
 ▒▒▒▒▒     ▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒    ▒▒▒▒▒▒▒▒▒  ▒▒▒▒▒▒▒▒▒▒ 
 ");
         Console.WriteLine("Miningcore by MinersHaven");
-        Console.WriteLine("A maintained Miningcore for .NET 8 and Ubuntu 24.04, from theminershaven.org\n");
+        Console.WriteLine("A maintained Miningcore from theminershaven.org\n");
         Console.WriteLine("https://github.com/minershaven/miningcore\n");
     }
 
