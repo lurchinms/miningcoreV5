@@ -37,4 +37,9 @@ public class KaspaPoolConfigExtra
     /// Default: "kaspawalletd.kaspawalletd"
     /// </summary>
     public string ProtobufWalletRpcServiceName { get; set; }
+
+    /// <summary>
+    /// Shortest time between two jobs sent to miners, in milliseconds (default 400). 0 sends every block template.
+    /// </summary>
+    public int? MinJobInterval { get; set; }
 }

@@ -67,6 +67,9 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
     protected IHashAlgorithm customBlockHeaderHasher;
     protected IHashAlgorithm customCoinbaseHasher;
     protected IHashAlgorithm customShareHasher;
+
+    private DateTime lastJobCreated = DateTime.MinValue;
+    private TimeSpan minJobInterval = TimeSpan.FromMilliseconds(400);
     
     protected IObservable<kaspad.RpcBlock> KaspaSubscribeNewBlockTemplate(CancellationToken ct, object payload = null,
         JsonSerializerSettings payloadJsonSerializerSettings = null)
@@ -378,7 +381,13 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
 
                     var job = currentJob;
 
-                    var isNew = (job == null || job.BlockTemplate?.Header.DaaScore < blockTemplate.Header.DaaScore);
+                    // Kaspa produces ten blocks a second. Handing miners a new job for every one of them floods
+                    // stratum clients (rental proxies drop the connection), and other pools do not either.
+                    var isNew = job == null ||
+                        (job.BlockTemplate?.Header.DaaScore < blockTemplate.Header.DaaScore && clock.Now - lastJobCreated >= minJobInterval);
+
+                    if(isNew)
+                        lastJobCreated = clock.Now;
 
                     if(isNew)
                         messageBus.NotifyChainHeight(poolConfig.Id, blockTemplate.Header.DaaScore, poolConfig.Template);
@@ -827,6 +836,7 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
         extraPoolPaymentProcessingConfig = pc.PaymentProcessing.Extra.SafeExtensionDataAs<KaspaPaymentProcessingConfigExtra>();
 
         maxActiveJobs = extraPoolConfig?.MaxActiveJobs ?? 8;
+        minJobInterval = TimeSpan.FromMilliseconds(Math.Max(0, extraPoolConfig?.MinJobInterval ?? 400));
         extraData = extraPoolConfig?.ExtraData ?? "Miningcore.developers[\"Cedric CRISPIN\"]";
 
         // extract standard daemon endpoints

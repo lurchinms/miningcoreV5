@@ -45,6 +45,15 @@ public class KaspaPool : PoolBase
     private KaspaPoolConfigExtra extraPoolConfig;
     private KaspaCoinTemplate coin;
     
+    /// <summary>
+    /// Whole difficulties go out as integers ("8192", not "8192.0"), as every other Kaspa pool sends them.
+    /// A client that reads the value as an integer cannot parse the second form.
+    /// </summary>
+    private static object StratumDifficulty(double difficulty)
+    {
+        return difficulty >= 1 && difficulty < long.MaxValue && Math.Floor(difficulty) == difficulty ? (long) difficulty : difficulty;
+    }
+
     protected virtual async Task OnSubscribeAsync(StratumConnection connection, Timestamped<JsonRpcRequest> tsRequest, CancellationToken ct)
     {
         var request = tsRequest.Value;
@@ -195,7 +204,7 @@ public class KaspaPool : PoolBase
             var minerJobParams = CreateWorkerJob(connection);
 
             // send intial update
-            await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { context.Difficulty });
+            await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { StratumDifficulty(context.Difficulty) });
             await SendJob(connection, context, minerJobParams);
         }
 
@@ -321,7 +330,7 @@ public class KaspaPool : PoolBase
 
             // varDiff: if the client has a pending difficulty change, apply it now
             if(context.ApplyPendingDifficulty())
-                await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { context.Difficulty });
+                await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { StratumDifficulty(context.Difficulty) });
 
             await SendJob(connection, context, minerJobParams);
         }));
@@ -485,7 +494,7 @@ public class KaspaPool : PoolBase
             var minerJobParams = CreateWorkerJob(connection);
 
             // send varDiff update
-            await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { context.Difficulty });
+            await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { StratumDifficulty(context.Difficulty) });
             await SendJob(connection, context, minerJobParams);
         }
     }
