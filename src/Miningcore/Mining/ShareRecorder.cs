@@ -111,7 +111,10 @@ public class ShareRecorder : BackgroundService
                 blockEntity.Status = BlockStatus.Pending;
                 await blockRepo.InsertAsync(con, tx, blockEntity);
 
-                if(pools.TryGetValue(share.PoolId, out var poolConfig))
+                // share recovery runs without the pools started, so their coin templates are not loaded
+                if(pools.TryGetValue(share.PoolId, out var poolConfig) && poolConfig.Template == null)
+                    logger.Info(() => $"Recorded block {blockEntity.BlockHeight} for pool {share.PoolId}");
+                else if(poolConfig != null)
                     messageBus.NotifyBlockFound(share.PoolId, blockEntity, poolConfig.Template);
                 else
                     logger.Warn(()=> $"Block found for unknown pool {share.PoolId}");
@@ -240,8 +243,11 @@ public class ShareRecorder : BackgroundService
 
                         catch(Exception ex)
                         {
-                            logger.Error(ex, () => "Unable to import shares");
-                            failCount++;
+                            logger.Error(ex, () => $"Unable to import a batch of {shares.Count} shares");
+                            failCount += shares.Count;
+
+                            // start the next batch clean, or no later share would ever be imported
+                            shares.Clear();
                         }
 
                         // progress
