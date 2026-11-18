@@ -140,7 +140,7 @@ public class KaspaPool : PoolBase
         else
         {
             context.IsAuthorized = true;
-            logger.Info(() => $"[{connection.ConnectionId}]{(!string.IsNullOrEmpty(context.UserAgent) ? $"[{context.UserAgent}]" : string.Empty)} worker: {minerName} => {KaspaConstants.KaspaAddressType[kaspaAddressUtility.KaspaAddress.Version()]}");
+            logger.Info(() => $"[{connection.ConnectionId}]{(!string.IsNullOrEmpty(context.UserAgent) ? $"[{context.UserAgent}]" : string.Empty)} worker: {minerName} => {(kaspaAddressUtility.KaspaAddress != null ? KaspaConstants.KaspaAddressType[kaspaAddressUtility.KaspaAddress.Version()] : "Shielded Address")}");
         }
 
         context.Miner = minerName;

@@ -8349,6 +8349,25 @@
     "explorerTxLink": "https://explorer.hoosat.fi/txs/{0}",
     "explorerAccountLink": "https://explorer.hoosat.fi/addresses/{0}"
   },
+  "zkas": {
+    "name": "ZKas",
+    "canonicalName": "ZKas",
+    "symbol": "ZKAS",
+    "family": "kaspa",
+    "website": "https://zkas.info/",
+    "market": "https://nonkyc.io/market/ZKAS_USDT",
+    "twitter": "",
+    "telegram": "",
+    "discord": "",
+    "github": "https://github.com/firecash/zkas-rusty",
+    "addressBech32Prefix": "zkas",
+    "addressBech32PrefixDevnet": "zkasdev",
+    "addressBech32PrefixSimnet": "zkassim",
+    "addressBech32PrefixTestnet": "zkastest",
+    "explorerBlockLink": "https://explorer.zkas.info/block/$hash$",
+    "explorerTxLink": "https://explorer.zkas.info/tx/{0}",
+    "explorerAccountLink": "https://explorer.zkas.info/"
+  },
   "kaspa": {
     "name": "Kaspa",
     "canonicalName": "Kaspa",

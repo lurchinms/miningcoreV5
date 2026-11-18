@@ -39,6 +39,9 @@ public static class KaspaConstants
     public const byte PubKeyAddrID = 0x00;
     public const byte PubKeyECDSAAddrID = 0x01;
     public const byte ScriptHashAddrID = 0x08;
+    // ZKas: shielded (Orchard) address, a raw 43-byte diversifier and key
+    public const byte ShieldedOrchardAddrID = 0x09;
+    public const int ShieldedOrchardAddressSize = 43;
     public static readonly FrozenDictionary<byte, string> KaspaAddressType = new Dictionary<byte, string>
     {
         { PubKeyAddrID, "Public Key Address" },

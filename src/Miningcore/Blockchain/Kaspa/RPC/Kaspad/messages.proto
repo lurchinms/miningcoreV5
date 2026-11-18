@@ -140,6 +140,9 @@ message KaspadMessage {
     GetMempoolEntriesByAddressesResponseMessage getMempoolEntriesByAddressesResponse = 1085;
     GetCoinSupplyRequestMessage getCoinSupplyRequest = 1086;
     GetCoinSupplyResponseMessage getCoinSupplyResponse= 1087;
+    // rusty-kaspa: colour, confirmations and (where the chain exposes it) reward of a block
+    GetBlockRewardInfoRequestMessage getBlockRewardInfoRequest = 1116;
+    GetBlockRewardInfoResponseMessage getBlockRewardInfoResponse = 1117;
   }
 }
 

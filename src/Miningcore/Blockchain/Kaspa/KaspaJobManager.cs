@@ -763,7 +763,7 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
         if(errorKaspaAddressUtility != null)
             throw new PoolStartupException($"Pool address: {poolConfig.Address} is invalid for network [{network}]: {errorKaspaAddressUtility}", poolConfig.Id);
         else
-            logger.Info(() => $"Pool address: {poolConfig.Address} => {KaspaConstants.KaspaAddressType[kaspaAddressUtility.KaspaAddress.Version()]}");
+            logger.Info(() => $"Pool address: {poolConfig.Address} => {(kaspaAddressUtility.KaspaAddress != null ? KaspaConstants.KaspaAddressType[kaspaAddressUtility.KaspaAddress.Version()] : "Shielded Address")}");
 
         // update stats
         BlockchainStats.NetworkType = network;
@@ -787,7 +787,7 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
         await stream.RequestStream.CompleteAsync();
 
         // Payment-processing setup
-        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true)
+        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true && !UsesRestWallet)
         {
             // we need a call to communicate with kaspadWallet
             var call = walletRpc.ShowAddressesAsync(new kaspaWalletd.ShowAddressesRequest(), null, null, ct);
@@ -858,10 +858,13 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
         }
     }
 
+    // ZKas has no kaspawallet daemon: its wallet (zkas-walletd) speaks REST and is the payout handler's business
+    private bool UsesRestWallet => coin?.Symbol == "ZKAS";
+
     protected override async Task<bool> AreDaemonsHealthyAsync(CancellationToken ct)
     {
         // Payment-processing setup
-        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true)
+        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true && !UsesRestWallet)
         {
             // we need a call to communicate with kaspadWallet
             var call = walletRpc.ShowAddressesAsync(new kaspaWalletd.ShowAddressesRequest(), null, null, ct);
@@ -909,7 +912,7 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
     protected override async Task<bool> AreDaemonsConnectedAsync(CancellationToken ct)
     {
         // Payment-processing setup
-        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true)
+        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true && !UsesRestWallet)
         {
             // we need a call to communicate with kaspadWallet
             var call = walletRpc.ShowAddressesAsync(new kaspaWalletd.ShowAddressesRequest(), null, null, ct);

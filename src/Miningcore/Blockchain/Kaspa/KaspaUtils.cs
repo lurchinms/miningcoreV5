@@ -383,6 +383,15 @@ public class KaspaAddressUtility
                 this.KaspaAddress = new KaspaAddressScriptHash(KaspaUtils.HashBlake2b(decoded), prefix);
 
                 break;
+            case KaspaConstants.ShieldedOrchardAddrID:
+                // only ZKas has shielded addresses; they map to no script, so there is nothing to build:
+                // a well-formed one decodes and is passed to the node and the wallet as text
+                if(coin?.Symbol != "ZKAS")
+                    throw new InvalidOperationException("Shielded addresses are not valid for this coin");
+                if(decoded.Length != KaspaConstants.ShieldedOrchardAddressSize)
+                    throw new ArgumentException($"Shielded address must carry {KaspaConstants.ShieldedOrchardAddressSize} bytes, got {decoded.Length}");
+
+                break;
             default:
                 throw new InvalidOperationException("Unknown address type");
         }
