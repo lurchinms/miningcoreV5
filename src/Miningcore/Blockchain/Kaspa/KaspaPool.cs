@@ -51,7 +51,11 @@ public class KaspaPool : PoolBase
     /// </summary>
     private static object StratumDifficulty(double difficulty)
     {
-        return difficulty >= 1 && difficulty < long.MaxValue && Math.Floor(difficulty) == difficulty ? (long) difficulty : difficulty;
+        // (the two results must stay boxed separately: a bare conditional would turn the integer back into a double)
+        if(difficulty >= 1 && difficulty < long.MaxValue && Math.Floor(difficulty) == difficulty)
+            return (long) difficulty;
+
+        return difficulty;
     }
 
     protected virtual async Task OnSubscribeAsync(StratumConnection connection, Timestamped<JsonRpcRequest> tsRequest, CancellationToken ct)
