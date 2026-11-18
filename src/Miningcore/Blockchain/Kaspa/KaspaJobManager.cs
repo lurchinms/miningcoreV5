@@ -404,6 +404,11 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
                             BlockchainStats.LastNetworkBlockTime = clock.Now;
                             BlockchainStats.BlockHeight = job.BlockTemplate.Header.DaaScore;
                             BlockchainStats.NetworkDifficulty = job.Difficulty;
+
+                            // coinbase payload: blue score (8 bytes), then the block subsidy in sompi (8 bytes)
+                            var payload = job.BlockTemplate.Transactions.FirstOrDefault()?.Payload;
+                            if(payload is { Length: >= 32 })
+                                BlockchainStats.BlockSubsidy = BitConverter.ToUInt64(payload.Substring(16, 16).HexToByteArray(), 0) / KaspaConstants.SmallestUnit;
                         }
                         
                         currentJob = job;
