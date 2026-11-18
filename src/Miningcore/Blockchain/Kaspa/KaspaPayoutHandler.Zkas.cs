@@ -31,7 +31,7 @@ public partial class KaspaPayoutHandler
     private HttpClient zkasWallet;
 
     // ~10 minutes at one block a second, which is also when a mined note becomes spendable
-    private const int ZkasMinimumConfirmations = 600;
+    private const int ZkasMinimumConfirmations = 800;
     // a block nobody has merged after this long is not going to be
     private static readonly TimeSpan ZkasUnmergedTimeout = TimeSpan.FromHours(2);
 
@@ -188,8 +188,31 @@ public partial class KaspaPayoutHandler
 
         if(spendable < total + feeReserve)
         {
-            logger.Warn(() => $"[{LogCategory}] Wallet balance currently short of {FormatAmount(total + feeReserve - spendable)}. Will try again");
-            return;
+            // Rewards reach the wallet in batches and need time to mature, so it can trail what miners
+            // are owed. Pay as many as it covers now, smallest first; the others wait for the next round.
+            var budget = spendable - feeReserve;
+            var covered = new List<(string Address, ulong Sompi)>();
+
+            foreach(var payee in payees.OrderBy(x => x.Sompi))
+            {
+                var amount = payee.Sompi / KaspaConstants.SmallestUnit;
+                if(amount > budget)
+                    break;
+
+                budget -= amount;
+                covered.Add(payee);
+            }
+
+            if(covered.Count == 0)
+            {
+                logger.Warn(() => $"[{LogCategory}] Wallet balance currently short of {FormatAmount(total + feeReserve - spendable)}. Will try again");
+                return;
+            }
+
+            logger.Info(() => $"[{LogCategory}] Wallet covers {covered.Count} of {payees.Length} payouts for now. The others wait for maturing rewards");
+
+            payees = covered.ToArray();
+            total = payees.Sum(x => (decimal) x.Sompi) / KaspaConstants.SmallestUnit;
         }
 
         var body = new JObject
