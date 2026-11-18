@@ -65,7 +65,7 @@ public static class ApiEndpoints
 
         api.MapGet("/meta", () => Results.Json(new
         {
-            generator = "Miningcore Community Edition",
+            generator = "Miningcore by MinersHaven",
             repo = "minershaven/miningcore"
         }));
 

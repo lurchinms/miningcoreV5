@@ -684,9 +684,8 @@ public class Program : BackgroundService
  █████     █████ ▒▒█████████  ▒▒█████████  ██████████
 ▒▒▒▒▒     ▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒    ▒▒▒▒▒▒▒▒▒  ▒▒▒▒▒▒▒▒▒▒ 
 ");
-        Console.WriteLine("Miningcore Community Edition");
-        Console.WriteLine("Miningcore Community Edition (MCCE) is a modernized, actively maintained continuation of Miningcore.");
-        Console.WriteLine("It features full support for .NET 8 and Ubuntu 24.04, offering better performance and stability compared to the original Oliverw Miningcore repository (which has been outdated, discontinued, and archived since 2022)\n");
+        Console.WriteLine("Miningcore by MinersHaven");
+        Console.WriteLine("A maintained Miningcore for .NET 8 and Ubuntu 24.04, from theminershaven.org\n");
         Console.WriteLine("https://github.com/minershaven/miningcore\n");
     }
 
