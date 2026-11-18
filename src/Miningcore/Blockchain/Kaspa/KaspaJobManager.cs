@@ -396,6 +396,10 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
                     {
                         job = CreateJob(blockTemplate.Header.DaaScore);
 
+                        // Kaspa and ZKas are mined by the same ASICs, which work to the standard target
+                        if(coin.Symbol is "KAS" or "ZKAS")
+                            job.ShareDiff1 = KaspaConstants.Diff1Standard;
+
                         job.Init(blockTemplate, NextJobId("D"), ShareMultiplier);
                         
                         logger.Debug(() => $"blockTargetValue: {job.blockTargetValue}");
