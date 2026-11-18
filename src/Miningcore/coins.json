@@ -1623,8 +1623,8 @@
     "explorerAccountLink": "https://axe-explorer.arcpool.com/address/{0}"
   },
   "digibyte-sha256": {
-    "name": "Digibyte SHA256",
-    "canonicalName": "Digibyte Sha256",
+    "name": "DigiByte SHA256",
+    "canonicalName": "DigiByte",
     "symbol": "DGB",
     "family": "bitcoin",
     "website": "https://digibyte.org/",
@@ -1655,8 +1655,8 @@
     "explorerAccountLink": "https://chainz.cryptoid.info/dgb/address.dws?{0}.htm"
   },
   "digibyte-scrypt": {
-    "name": "Digibyt Scrypt",
-    "canonicalName": "Digibyte Scypt",
+    "name": "DigiByte Scrypt",
+    "canonicalName": "DigiByte",
     "symbol": "DGB",
     "family": "bitcoin",
     "website": "https://digibyte.org/",
@@ -1692,8 +1692,8 @@
     "explorerAccountLink": "https://chainz.cryptoid.info/dgb/address.dws?{0}.htm"
   },
   "digibyte-skein": {
-    "name": "Digibyte Skein",
-    "canonicalName": "Digibyte-Skein",
+    "name": "DigiByte Skein",
+    "canonicalName": "DigiByte",
     "symbol": "DGB",
     "family": "bitcoin",
     "website": "https://digibyte.org/",
@@ -1724,8 +1724,8 @@
     "explorerAccountLink": "https://chainz.cryptoid.info/dgb/address.dws?{0}.htm"
   },
   "digibyte-qubit": {
-    "name": "Digibyte Qubit",
-    "canonicalName": "Digibyte",
+    "name": "DigiByte Qubit",
+    "canonicalName": "DigiByte",
     "symbol": "DGB",
     "family": "bitcoin",
     "website": "https://digibyte.org/",
