@@ -58,18 +58,13 @@ public class KaspaPool : PoolBase
         context.UserAgent = requestParams.FirstOrDefault()?.Trim();
         context.IsLargeJob = manager.ValidateIsLargeJob(context.UserAgent);
 
-        // Rental proxies (MiningRigRentals, NiceHash) announce themselves as "NiceHash/x". They take the extranonce
-        // the way Bitmain's firmware does: from the subscribe reply, or from "mining.set_extranonce".
-        // They ignore the bare "set_extranonce" other Kaspa miners use, and leave after a second without one.
-        if(manager.ValidateIsGodMiner(context.UserAgent) || context.IsNicehash)
+        if(manager.ValidateIsGodMiner(context.UserAgent))
         {
-            var subscriberData = manager.GetSubscriberData(connection);
-
             var data = new object[]
             {
                 null,
             }
-            .Concat(subscriberData)
+            .Concat(manager.GetSubscriberData(connection))
             .ToArray();
 
             // Nicehash's stupid validator insists on "error" property present
@@ -80,9 +75,6 @@ public class KaspaPool : PoolBase
             response.Extra = new Dictionary<string, object> { ["error"] = null };
 
             await connection.RespondAsync(response);
-
-            if(context.IsNicehash)
-                await connection.NotifyAsync("mining.set_extranonce", subscriberData);
         }
         
         else
