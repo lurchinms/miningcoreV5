@@ -1853,6 +1853,41 @@
     "explorerTxLink": "https://chainz.cryptoid.info/dime/tx.dws?{0}.htm",
     "explorerAccountLink": "https://chainz.cryptoid.info/dime/address.dws?{0}.htm"
   },
+  "soqucoin": {
+    "name": "Soqucoin",
+    "canonicalName": "Soqucoin",
+    "symbol": "SOQ",
+    "family": "bitcoin",
+    "website": "https://soqu.org/",
+    "market": "",
+    "twitter": "",
+    "telegram": "",
+    "discord": "",
+    "github": "https://github.com/soqucoin/soqucoin",
+    "coinbaseHasher": {
+      "hash": "sha256d"
+    },
+    "headerHasher": {
+      "hash": "scrypt",
+      "args": [
+        1024,
+        1
+      ]
+    },
+    "blockHasher": {
+      "hash": "reverse",
+      "args": [
+        {
+          "hash": "sha256d"
+        }
+      ]
+    },
+    "shareMultiplier": 65536,
+    "coinbaseMinConfimations": 288,
+    "explorerBlockLink": "https://explorer.soqu.org/block-height/$height$",
+    "explorerTxLink": "https://explorer.soqu.org/tx/{0}",
+    "explorerAccountLink": "https://explorer.soqu.org/address/{0}"
+  },
   "dogecoin": {
     "name": "Dogecoin",
     "canonicalName": "Dogecoin",
