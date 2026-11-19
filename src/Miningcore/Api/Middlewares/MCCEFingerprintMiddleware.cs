@@ -15,7 +15,7 @@ public class MCCEFingerprintMiddleware
     {
         context.Response.OnStarting(() =>
         {
-            context.Response.Headers["X-Pool-Generator"] = "mcce";
+            context.Response.Headers["X-Pool-Generator"] = "miningcore-minershaven";
             context.Response.Headers["Server"] = "miningcore";
             return Task.CompletedTask;
         });

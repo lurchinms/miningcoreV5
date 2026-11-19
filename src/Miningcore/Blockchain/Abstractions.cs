@@ -12,6 +12,11 @@ public class BlockchainStats
     public int ConnectedPeers { get; set; }
     public string NodeVersion { get; set; } = "Unknown";
     public string RewardType { get; set; }
+
+    /// <summary>
+    /// What the next block pays before fees, when the coin's block template says so
+    /// </summary>
+    public decimal? BlockSubsidy { get; set; }
 }
 
 public interface IExtraNonceProvider

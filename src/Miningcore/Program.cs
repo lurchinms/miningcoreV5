@@ -265,6 +265,9 @@ public class Program : BackgroundService
                 });
             }
 
+            // Give services 15 seconds to stop instead of the default 30; pools don't need longer.
+            hostBuilder.ConfigureServices(services => services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(15)));
+
             host = hostBuilder.UseConsoleLifetime().Build();
 
             await PreFlightChecks(host.Services);
@@ -292,6 +295,13 @@ public class Program : BackgroundService
                 await Task.WhenAny(host.RunAsync(), adminPanelTask);
             else
                 await host.RunAsync();
+
+            // The host has stopped and every service has had its StopAsync (shares are flushed by then).
+            // Exit now: lingering foreground threads (ZMQ/NetMQ pollers, the admin panel host) otherwise keep
+            // the process alive until systemd kills it 90 seconds after "stop".
+            logger.Info(() => "Shutdown complete");
+            NLog.LogManager.Shutdown();
+            Environment.Exit(0);
         }
 
         catch(PoolStartupException ex)
@@ -414,6 +424,14 @@ public class Program : BackgroundService
 
         var coinTemplates = LoadCoinTemplates();
         logger.Info($"{coinTemplates.Keys.Count} coins loaded from '{string.Join(", ", clusterConfig.CoinTemplates)}'");
+
+        // Pools start side by side, and one pool may look at another (merged mining reads its aux pool's coin).
+        // Give every pool its coin before any of them starts.
+        foreach(var config in clusterConfig.Pools.Where(x => x.Enabled))
+        {
+            if(coinTemplates.TryGetValue(config.Coin, out var template))
+                config.Template = template;
+        }
 
         var tasks = clusterConfig.Pools
             .Where(config => config.Enabled)
@@ -674,17 +692,9 @@ public class Program : BackgroundService
  █████     █████ ▒▒█████████  ▒▒█████████  ██████████
 ▒▒▒▒▒     ▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒    ▒▒▒▒▒▒▒▒▒  ▒▒▒▒▒▒▒▒▒▒ 
 ");
-        Console.WriteLine("Miningcore Community Edition");
-        Console.WriteLine("Miningcore Community Edition (MCCE) is a modernized, actively maintained continuation of Miningcore.");
-        Console.WriteLine("It features full support for .NET 8 and Ubuntu 24.04, offering better performance and stability compared to the original Oliverw Miningcore repository (which has been outdated, discontinued, and archived since 2022)\n");
-        Console.WriteLine("https://github.com/soosho/miningcore\n");
-        Console.WriteLine("Donation:");
-        Console.WriteLine("BTC:  1AqqFf13RcfGbwa4GQGQV27T6HL1r35WVk");
-        Console.WriteLine("BCH:  1AqqFf13RcfGbwa4GQGQV27T6HL1r35WVk");
-        Console.WriteLine("ETH:  0xbd9bf193bf6ba5bf0dc25418e96082580fb9498f");
-        Console.WriteLine("BNB:  0xbd9bf193bf6ba5bf0dc25418e96082580fb9498f");
-        Console.WriteLine("LTC:  La2a5YZH3dDJh1L8tTRKk3zz2zUwtYfeHj");
-        Console.WriteLine("DOGE: DCMuGWx62HoW6mKVsvfkvuqqqYpsWevfod\n");
+        Console.WriteLine("Miningcore by MinersHaven");
+        Console.WriteLine("A maintained Miningcore from theminershaven.org\n");
+        Console.WriteLine("https://github.com/minershaven/miningcore\n");
     }
 
     private static void ConfigureLogging()

@@ -40,8 +40,12 @@ public static class ApiEndpoints
     // Bitcoin-family shares are stored as stratumDifficulty / ShareMultiplier and the network
     // difficulty comes from the block target, so both are already in the same units.
     // Multiplying by ShareMultiplier (65536 for scrypt) inflated LTC/DOGE effort 65536x.
-    private static double EffortShareConst(IMiningPool pool) =>
-        pool is Blockchain.Bitcoin.BitcoinPool ? 1d : pool.ShareMultiplier;
+    private static double EffortShareConst(IMiningPool pool) => pool switch
+    {
+        Blockchain.Bitcoin.BitcoinPool => 1d,
+        Blockchain.Kaspa.KaspaPool kaspa => kaspa.EffortShareConst,
+        _ => pool.ShareMultiplier
+    };
 
     public static void MapMiningcoreApi(this IEndpointRouteBuilder app)
     {
@@ -65,8 +69,8 @@ public static class ApiEndpoints
 
         api.MapGet("/meta", () => Results.Json(new
         {
-            generator = "Miningcore Community Edition",
-            repo = "soosho/miningcore"
+            generator = "Miningcore by MinersHaven",
+            repo = "minershaven/miningcore"
         }));
 
         MapClusterApi(api);
@@ -409,6 +413,10 @@ public static class ApiEndpoints
                     result.TotalConfirmedBlocks = await cf.Run(con => blocksRepo.GetTotalConfirmedBlocksAsync(con, config.Id, ct));
                     result.TotalPendingBlocks = await cf.Run(con => blocksRepo.GetTotalPendingBlocksAsync(con, config.Id, ct));
                     result.BlockReward = await cf.Run(con => blocksRepo.GetLastConfirmedBlockRewardAsync(con, config.Id, ct));
+
+                    // a pool that has not confirmed a block yet still knows what one pays
+                    if(result.BlockReward == 0 && result.NetworkStats?.BlockSubsidy is > 0)
+                        result.BlockReward = result.NetworkStats.BlockSubsidy.Value;
                     var lastBlockTime = await cf.Run(con => blocksRepo.GetLastPoolBlockTimeAsync(con, config.Id, ct));
                     result.LastPoolBlockTime = lastBlockTime;
 
@@ -477,6 +485,9 @@ public static class ApiEndpoints
             response.Pool.TotalConfirmedBlocks = await cf.Run(con => blocksRepo.GetTotalConfirmedBlocksAsync(con, pool.Id, ct));
             response.Pool.TotalPendingBlocks = await cf.Run(con => blocksRepo.GetTotalPendingBlocksAsync(con, pool.Id, ct));
             response.Pool.BlockReward = await cf.Run(con => blocksRepo.GetLastConfirmedBlockRewardAsync(con, pool.Id, ct));
+
+            if(response.Pool.BlockReward == 0 && response.Pool.NetworkStats?.BlockSubsidy is > 0)
+                response.Pool.BlockReward = response.Pool.NetworkStats.BlockSubsidy.Value;
             var lastBlockTime = await cf.Run(con => blocksRepo.GetLastPoolBlockTimeAsync(con, pool.Id, ct));
             response.Pool.LastPoolBlockTime = lastBlockTime;
 

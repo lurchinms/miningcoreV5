@@ -67,6 +67,9 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
     protected IHashAlgorithm customBlockHeaderHasher;
     protected IHashAlgorithm customCoinbaseHasher;
     protected IHashAlgorithm customShareHasher;
+
+    private DateTime lastJobCreated = DateTime.MinValue;
+    private TimeSpan minJobInterval = TimeSpan.FromMilliseconds(400);
     
     protected IObservable<kaspad.RpcBlock> KaspaSubscribeNewBlockTemplate(CancellationToken ct, object payload = null,
         JsonSerializerSettings payloadJsonSerializerSettings = null)
@@ -378,7 +381,13 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
 
                     var job = currentJob;
 
-                    var isNew = (job == null || job.BlockTemplate?.Header.DaaScore < blockTemplate.Header.DaaScore);
+                    // Kaspa produces ten blocks a second. Handing miners a new job for every one of them floods
+                    // stratum clients (rental proxies drop the connection), and other pools do not either.
+                    var isNew = job == null ||
+                        (job.BlockTemplate?.Header.DaaScore < blockTemplate.Header.DaaScore && clock.Now - lastJobCreated >= minJobInterval);
+
+                    if(isNew)
+                        lastJobCreated = clock.Now;
 
                     if(isNew)
                         messageBus.NotifyChainHeight(poolConfig.Id, blockTemplate.Header.DaaScore, poolConfig.Template);
@@ -386,6 +395,10 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
                     if(isNew)
                     {
                         job = CreateJob(blockTemplate.Header.DaaScore);
+
+                        // Kaspa and ZKas are mined by the same ASICs, which work to the standard target
+                        if(coin.Symbol is "KAS" or "ZKAS")
+                            job.ShareDiff1 = KaspaConstants.Diff1Standard;
 
                         job.Init(blockTemplate, NextJobId("D"), ShareMultiplier);
                         
@@ -404,6 +417,11 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
                             BlockchainStats.LastNetworkBlockTime = clock.Now;
                             BlockchainStats.BlockHeight = job.BlockTemplate.Header.DaaScore;
                             BlockchainStats.NetworkDifficulty = job.Difficulty;
+
+                            // coinbase payload: blue score (8 bytes), then the block subsidy in sompi (8 bytes)
+                            var payload = job.BlockTemplate.Transactions.FirstOrDefault()?.Payload;
+                            if(payload is { Length: >= 32 })
+                                BlockchainStats.BlockSubsidy = BitConverter.ToUInt64(payload.Substring(16, 16).HexToByteArray(), 0) / KaspaConstants.SmallestUnit;
                         }
                         
                         currentJob = job;
@@ -763,7 +781,7 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
         if(errorKaspaAddressUtility != null)
             throw new PoolStartupException($"Pool address: {poolConfig.Address} is invalid for network [{network}]: {errorKaspaAddressUtility}", poolConfig.Id);
         else
-            logger.Info(() => $"Pool address: {poolConfig.Address} => {KaspaConstants.KaspaAddressType[kaspaAddressUtility.KaspaAddress.Version()]}");
+            logger.Info(() => $"Pool address: {poolConfig.Address} => {(kaspaAddressUtility.KaspaAddress != null ? KaspaConstants.KaspaAddressType[kaspaAddressUtility.KaspaAddress.Version()] : "Shielded Address")}");
 
         // update stats
         BlockchainStats.NetworkType = network;
@@ -787,7 +805,7 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
         await stream.RequestStream.CompleteAsync();
 
         // Payment-processing setup
-        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true)
+        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true && !UsesRestWallet)
         {
             // we need a call to communicate with kaspadWallet
             var call = walletRpc.ShowAddressesAsync(new kaspaWalletd.ShowAddressesRequest(), null, null, ct);
@@ -822,6 +840,7 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
         extraPoolPaymentProcessingConfig = pc.PaymentProcessing.Extra.SafeExtensionDataAs<KaspaPaymentProcessingConfigExtra>();
 
         maxActiveJobs = extraPoolConfig?.MaxActiveJobs ?? 8;
+        minJobInterval = TimeSpan.FromMilliseconds(Math.Max(0, extraPoolConfig?.MinJobInterval ?? 400));
         extraData = extraPoolConfig?.ExtraData ?? "Miningcore.developers[\"Cedric CRISPIN\"]";
 
         // extract standard daemon endpoints
@@ -858,10 +877,13 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
         }
     }
 
+    // ZKas has no kaspawallet daemon: its wallet (zkas-walletd) speaks REST and is the payout handler's business
+    private bool UsesRestWallet => coin?.Symbol == "ZKAS";
+
     protected override async Task<bool> AreDaemonsHealthyAsync(CancellationToken ct)
     {
         // Payment-processing setup
-        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true)
+        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true && !UsesRestWallet)
         {
             // we need a call to communicate with kaspadWallet
             var call = walletRpc.ShowAddressesAsync(new kaspaWalletd.ShowAddressesRequest(), null, null, ct);
@@ -909,7 +931,7 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
     protected override async Task<bool> AreDaemonsConnectedAsync(CancellationToken ct)
     {
         // Payment-processing setup
-        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true)
+        if(clusterConfig.PaymentProcessing?.Enabled == true && poolConfig.PaymentProcessing?.Enabled == true && !UsesRestWallet)
         {
             // we need a call to communicate with kaspadWallet
             var call = walletRpc.ShowAddressesAsync(new kaspaWalletd.ShowAddressesRequest(), null, null, ct);

@@ -14,7 +14,6 @@ using Miningcore.Time;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NBitcoin;
-using System.Net.Http;
 using NLog;
 using Org.BouncyCastle.Crypto.Parameters;
 

@@ -25,7 +25,7 @@ using kaspad = Miningcore.Blockchain.Kaspa.Kaspad;
 namespace Miningcore.Blockchain.Kaspa;
 
 [CoinFamily(CoinFamily.Kaspa)]
-public class KaspaPayoutHandler : PayoutHandlerBase,
+public partial class KaspaPayoutHandler : PayoutHandlerBase,
     IPayoutHandler
 {
     public KaspaPayoutHandler(
@@ -83,8 +83,13 @@ public class KaspaPayoutHandler : PayoutHandlerBase,
         if(walletDaemonEndpoints.Length == 0)
             throw new PaymentException("Wallet-RPC daemon is not configured (Daemon configuration for kaspa-pools require an additional entry of category 'wallet' pointing to the wallet daemon)");
 
+        isZkas = pc.Template.Symbol == "ZKAS";
+
         rpc = KaspaClientFactory.CreateKaspadRPCClient(daemonEndpoints, extraPoolConfig?.ProtobufDaemonRpcServiceName ?? KaspaConstants.ProtobufDaemonRpcServiceName);
-        walletRpc = KaspaClientFactory.CreateKaspaWalletdRPCClient(walletDaemonEndpoints, extraPoolConfig?.ProtobufWalletRpcServiceName ?? KaspaConstants.ProtobufWalletRpcServiceName);
+        if(isZkas)
+            ZkasConfigure(walletDaemonEndpoints);
+        else
+            walletRpc = KaspaClientFactory.CreateKaspaWalletdRPCClient(walletDaemonEndpoints, extraPoolConfig?.ProtobufWalletRpcServiceName ?? KaspaConstants.ProtobufWalletRpcServiceName);
         
         // we need a stream to communicate with Kaspad
         var stream = rpc.MessageStream(null, null, ct);
@@ -102,6 +107,14 @@ public class KaspaPayoutHandler : PayoutHandlerBase,
             break;
         }
         await stream.RequestStream.CompleteAsync();
+
+        if(isZkas)
+        {
+            var status = await Guard(() => ZkasWalletStatusAsync(ct), ex => logger.Warn(() => $"[{LogCategory}] zkas-walletd is not answering yet: {ex.Message}"));
+            if(status != null)
+                logger.Info(() => $"[{LogCategory}] Wallet {status.Value<string>("address")} - synced: {status.Value<bool?>("synced")} - notes: {status["note_count"]}");
+            return;
+        }
 
         var callGetVersion = walletRpc.GetVersionAsync(new kaspaWalletd.GetVersionRequest());
         var walletVersion = await Guard(() => callGetVersion.ResponseAsync,
@@ -142,7 +155,7 @@ public class KaspaPayoutHandler : PayoutHandlerBase,
         var pageCount = (int) Math.Ceiling(blocks.Length / (double) pageSize);
         var result = new List<Block>();
         // KAS minimum confirmation can change over time so please always aknowledge all those different changes very wisely: https://github.com/kaspanet/rusty-kaspa/blob/master/wallet/core/src/utxo/settings.rs
-        int minConfirmations = extraPoolPaymentProcessingConfig?.MinimumConfirmations ?? (network == "mainnet" ? 120 : 110);
+        int minConfirmations = extraPoolPaymentProcessingConfig?.MinimumConfirmations ?? (isZkas ? ZkasMinimumConfirmations : network == "mainnet" ? 120 : 110);
 
         // we need a stream to communicate with Kaspad
         var stream = rpc.MessageStream(null, null, ct);
@@ -203,6 +216,11 @@ public class KaspaPayoutHandler : PayoutHandlerBase,
                         logger.Info(() => $"[{LogCategory}] Block {block.BlockHeight} [{block.Hash}] classified as orphaned because we already have in the database {totalDuplicateBlockBefore} block(s) with the same height and hash");
 
                         messageBus.NotifyBlockUnlocked(poolConfig.Id, block, coin);
+                    }
+                    else if(isZkas)
+                    {
+                        if(await ZkasClassifyBlockAsync(stream, block, blockInfo.GetBlockResponse.Block, coin, minConfirmations, ct))
+                            result.Add(block);
                     }
                     else
                     {
@@ -390,6 +408,12 @@ public class KaspaPayoutHandler : PayoutHandlerBase,
 
             if(errorKaspaAddressUtility != null)
                 logger.Warn(()=> $"[{LogCategory}] Address {pair.Key} is not valid : {errorKaspaAddressUtility}");
+        }
+
+        if(isZkas)
+        {
+            await ZkasPayoutAsync(amounts, ct);
+            return;
         }
         
         var callGetBalance = walletRpc.GetBalanceAsync(new kaspaWalletd.GetBalanceRequest());

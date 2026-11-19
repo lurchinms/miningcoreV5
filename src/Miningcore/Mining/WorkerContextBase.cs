@@ -36,12 +36,20 @@ public class WorkerContextBase
     /// <summary>
     /// Usually a wallet address
     /// </summary>
-    public virtual string Miner { get; set; }
+    public virtual string Miner
+    {
+        get => miner;
+        set => miner = Clean(value);
+    }
 
     /// <summary>
     /// Arbitrary worker identififer for miners using multiple rigs
     /// </summary>
-    public virtual string Worker { get; set; }
+    public virtual string Worker
+    {
+        get => worker;
+        set => worker = Clean(value);
+    }
 
     /// <summary>
     /// UserAgent reported by Stratum
@@ -51,13 +59,27 @@ public class WorkerContextBase
         get => userAgent;
         set
         {
-            userAgent = value;
+            userAgent = Clean(value);
 
             IsNicehash = userAgent?.Contains(NicehashConstants.NicehashUA, StringComparison.OrdinalIgnoreCase) == true;
         }
     }
 
     public bool IsNicehash { get; private set; }
+
+    private string miner;
+    private string worker;
+
+    /// <summary>
+    /// Miners choose these strings. Drop control characters (a NUL makes the database refuse the share).
+    /// </summary>
+    private static string Clean(string value)
+    {
+        if(string.IsNullOrEmpty(value) || !value.Any(char.IsControl))
+            return value;
+
+        return new string(value.Where(c => !char.IsControl(c)).ToArray());
+    }
 
     public void Init(double difficulty, VarDiffConfig varDiffConfig, IMasterClock clock)
     {

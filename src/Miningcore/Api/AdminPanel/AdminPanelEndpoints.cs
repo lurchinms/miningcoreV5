@@ -199,12 +199,12 @@ public static class AdminPanelEndpoints
     }
 
     private const string LoginPageHtml = @"<!DOCTYPE html>
-<html lang=""en""><head><meta charset=""UTF-8""><meta name=""viewport"" content=""width=device-width, initial-scale=1""><title>MCCE Admin</title>
+<html lang=""en""><head><meta charset=""UTF-8""><meta name=""viewport"" content=""width=device-width, initial-scale=1""><title>Miningcore Admin</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d1117;color:#e6edf3;font:16px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh}.box{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:36px;width:380px;box-shadow:0 8px 24px rgba(0,0,0,.3)}h1{font-size:22px;margin-bottom:6px;color:#e6edf3}.desc{color:#8b949e;font-size:13px;margin-bottom:24px}input{width:100%;padding:12px 14px;background:#0d1117;border:1px solid #30363d;border-radius:8px;color:#e6edf3;font-size:15px;margin-bottom:16px}input:focus{outline:none;border-color:#58a6ff;box-shadow:0 0 0 3px rgba(88,166,255,.15)}button{width:100%;padding:12px;background:#238636;color:#fff;border:0;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}button:hover{background:#2ea043}</style></head>
-<body><div class=""box""><h1>⚡ MCCE Admin</h1><p class=""desc"">Enter your admin password to continue</p><form method=""post""><input type=""password"" name=""password"" placeholder=""Password"" autofocus><button type=""submit"">Sign in</button></form></div></body></html>";
+<body><div class=""box""><h1>⚡ Miningcore Admin</h1><p class=""desc"">Enter your admin password to continue</p><form method=""post""><input type=""password"" name=""password"" placeholder=""Password"" autofocus><button type=""submit"">Sign in</button></form></div></body></html>";
 
     private const string DashboardHtml = @"<!DOCTYPE html>
-<html lang=""en""><head><meta charset=""UTF-8""><meta name=""viewport"" content=""width=device-width,initial-scale=1""><title>MCCE Admin</title>
+<html lang=""en""><head><meta charset=""UTF-8""><meta name=""viewport"" content=""width=device-width,initial-scale=1""><title>Miningcore Admin</title>
 <style>
 :root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#f78166;--green:#3fb950;--red:#f85149;--yellow:#d29922}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -253,7 +253,7 @@ input:focus{outline:none;border-color:#58a6ff}
 </style></head>
 <body>
 <div id=""sidebar"">
- <div class=""logo"">⚡ MCCE Admin</div>
+ <div class=""logo"">⚡ Miningcore Admin</div>
  <a href=""#"" class=""active"" onclick=""t('overview')""><span class=""icon"">📊</span> Overview</a>
  <a href=""#"" onclick=""t('pools')""><span class=""icon"">⛏️</span> Pools</a>
  <a href=""#"" onclick=""t('miners')""><span class=""icon"">👤</span> Miners</a>
@@ -400,7 +400,7 @@ settings:async function(){
   html+='<tr><td>Difficulty</td><td>'+(n.networkDifficulty?f(n.networkDifficulty/1e9,1)+'G':'—')+'</td></tr>';
   html+='<tr><td>Block Height</td><td>'+n.blockHeight+'</td></tr>';
  }catch(e){}
- html+='<tr><td>Build</td><td>MCCE .NET 8</td></tr>';
+ html+='<tr><td>Build</td><td>Miningcore by MinersHaven</td></tr>';
  html+='</table></div></div>';
  html+='</div>';
  document.getElementById('content').innerHTML=html;

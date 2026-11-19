@@ -24,4 +24,11 @@ public class KaspaPaymentProcessingConfigExtra
     /// Default: 20000 (0.0002 KAS)
     /// </summary>
     public ulong? MaxFee { get; set; }
+
+    /// <summary>
+    /// ZKas only: the zkas-walletd wallet token (X-Wallet-Token) of the pool wallet.
+    /// The daemon entry of category "wallet" points at zkas-walletd's REST address.
+    /// For ZKas, MaxFee is the ceiling on the total fees of one payout run (in SOMPI); unset = no ceiling.
+    /// </summary>
+    public string WalletToken { get; set; }
 }

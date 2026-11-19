@@ -17,6 +17,14 @@ public static class KaspaConstants
     public static BigInteger Diff1Target = BigInteger.Pow(2, 255) - 1;
     public static readonly double Pow2xDiff1TargetNumZero = Math.Pow(2, Diff1TargetNumZero);
     public static BigInteger MinHash = BigInteger.Divide(Diff1, Diff1Target);
+
+    /// <summary>
+    /// The share target kHeavyHash miners work to at stratum difficulty 1 (2^224 - 1, i.e. 2^32 hashes per share).
+    /// It is what ASIC firmware and the reference Kaspa stratum bridge use. Diff1b above is about 16.7 million times
+    /// easier: checking shares against it lets a modified miner be credited for work it did not do.
+    /// </summary>
+    public static readonly BigInteger Diff1Standard = BigInteger.Pow(2, 224) - 1;
+
     public const int ExtranoncePlaceHolderLength = 8;
     public static int NonceLength = 16;
     
@@ -39,6 +47,9 @@ public static class KaspaConstants
     public const byte PubKeyAddrID = 0x00;
     public const byte PubKeyECDSAAddrID = 0x01;
     public const byte ScriptHashAddrID = 0x08;
+    // ZKas: shielded (Orchard) address, a raw 43-byte diversifier and key
+    public const byte ShieldedOrchardAddrID = 0x09;
+    public const int ShieldedOrchardAddressSize = 43;
     public static readonly FrozenDictionary<byte, string> KaspaAddressType = new Dictionary<byte, string>
     {
         { PubKeyAddrID, "Public Key Address" },

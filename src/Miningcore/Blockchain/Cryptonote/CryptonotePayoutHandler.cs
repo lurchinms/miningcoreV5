@@ -480,7 +480,9 @@ public class CryptonotePayoutHandler : PayoutHandlerBase,
                 messageBus.NotifyBlockConfirmationProgress(poolConfig.Id, block, coin);
 
                 // orphaned?
-                if(blockHeader.IsOrphaned || blockHeader.Hash != block.TransactionConfirmationData)
+                // QRL block ids are not Cryptonote block ids; the QRL daemon adapter reports orphan_status by
+                // checking the coinbase recipient of the block at that height against the pool address.
+                if(blockHeader.IsOrphaned || (!coin.IsQrl && blockHeader.Hash != block.TransactionConfirmationData))
                 {
                     block.Status = BlockStatus.Orphaned;
                     block.Reward = 0;
@@ -565,6 +567,15 @@ public class CryptonotePayoutHandler : PayoutHandlerBase,
             .Where(x =>
             {
                 ExtractAddressAndPaymentId(x.Address, out var address, out _);
+
+                if(coin.IsQrl)
+                {
+                    if(QrlAddress.IsValid(address))
+                        return true;
+
+                    logger.Warn(() => $"[{LogCategory}] Excluding payment to invalid address: {x.Address}");
+                    return false;
+                }
 
                 var addressPrefix = CryptonoteBindings.DecodeAddress(address);
                 var addressIntegratedPrefix = CryptonoteBindings.DecodeIntegratedAddress(address);

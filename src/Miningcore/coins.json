@@ -1623,8 +1623,8 @@
     "explorerAccountLink": "https://axe-explorer.arcpool.com/address/{0}"
   },
   "digibyte-sha256": {
-    "name": "Digibyte SHA256",
-    "canonicalName": "Digibyte Sha256",
+    "name": "DigiByte SHA256",
+    "canonicalName": "DigiByte",
     "symbol": "DGB",
     "family": "bitcoin",
     "website": "https://digibyte.org/",
@@ -1655,8 +1655,8 @@
     "explorerAccountLink": "https://chainz.cryptoid.info/dgb/address.dws?{0}.htm"
   },
   "digibyte-scrypt": {
-    "name": "Digibyt Scrypt",
-    "canonicalName": "Digibyte Scypt",
+    "name": "DigiByte Scrypt",
+    "canonicalName": "DigiByte",
     "symbol": "DGB",
     "family": "bitcoin",
     "website": "https://digibyte.org/",
@@ -1692,8 +1692,8 @@
     "explorerAccountLink": "https://chainz.cryptoid.info/dgb/address.dws?{0}.htm"
   },
   "digibyte-skein": {
-    "name": "Digibyte Skein",
-    "canonicalName": "Digibyte-Skein",
+    "name": "DigiByte Skein",
+    "canonicalName": "DigiByte",
     "symbol": "DGB",
     "family": "bitcoin",
     "website": "https://digibyte.org/",
@@ -1724,8 +1724,8 @@
     "explorerAccountLink": "https://chainz.cryptoid.info/dgb/address.dws?{0}.htm"
   },
   "digibyte-qubit": {
-    "name": "Digibyte Qubit",
-    "canonicalName": "Digibyte",
+    "name": "DigiByte Qubit",
+    "canonicalName": "DigiByte",
     "symbol": "DGB",
     "family": "bitcoin",
     "website": "https://digibyte.org/",
@@ -4761,6 +4761,37 @@
     "explorerTxLink": "https://explorer.griffion.org/transaction/{0}",
     "explorerAccountLink": "https://explorer.griffion.org/address/{0}"
   },
+  "auroraborealis": {
+    "name": "Aurora Borealis",
+    "canonicalName": "Aurora Borealis Coin",
+    "symbol": "ABRS",
+    "family": "progpow",
+    "website": "https://auroraborealiscoin.com/",
+    "market": "",
+    "twitter": "",
+    "telegram": "",
+    "discord": "",
+    "github": "https://github.com/auroraborealiscoin/auroraborealis",
+    "coinbaseHasher": {
+      "hash": "sha256d"
+    },
+    "headerHasher": {
+      "hash": "sha256d"
+    },
+    "blockHasher": {
+      "hash": "reverse",
+      "args": [
+        {
+          "hash": "sha256d"
+        }
+      ]
+    },
+    "shareMultiplier": 1,
+    "progpower": "kawpow",
+    "explorerBlockLink": "https://explorer.auroraborealiscoin.com/block/$hash$",
+    "explorerTxLink": "https://explorer.auroraborealiscoin.com/tx/{0}",
+    "explorerAccountLink": "https://explorer.auroraborealiscoin.com/address/{0}"
+  },
   "ravencoin": {
     "name": "Ravencoin",
     "canonicalName": "Ravencoin",
@@ -5998,7 +6029,7 @@
     "explorerTxLink": "http://explorer.swippcoin.com/tx/{0}",
     "explorerAccountLink": "http://explorer.swippcoin.com/address/{0}"
   },
-    "tarcoin": {
+  "tarcoin": {
     "name": "TarCoin",
     "canonicalName": "TarCoin",
     "symbol": "TAR",
@@ -7995,6 +8026,30 @@
     "explorerBlockLink": "https://explorer.beam.mw/block/$hash$",
     "explorerTxLink": "https://explorer.beam.mw/?searched_by={0}"
   },
+  "feelcoin": {
+    "name": "Feelcoin",
+    "canonicalName": "Feelcoin",
+    "symbol": "FEEL",
+    "family": "cryptonote",
+    "website": "https://feelcoin.org/",
+    "market": "https://coinmarketcap.com/currencies/feelcoin",
+    "github": "https://github.com/feelcoin-org/feelcoin",
+    "hash": "randomx",
+    "hashVariant": 0,
+    "blobType": 0,
+    "smallestUnit": 1000000000000,
+    "addressPrefix": 84,
+    "addressPrefixStagenet": 96,
+    "addressPrefixTestnet": 90,
+    "addressPrefixIntegrated": 85,
+    "addressPrefixIntegratedStagenet": 97,
+    "addressPrefixIntegratedTestnet": 91,
+    "subAddressPrefix": 86,
+    "subAddressPrefixTestnet": 92,
+    "subAddressPrefixStagenet": 98,
+    "explorerBlockLink": "https://explorer.feelcoin.org/block/$height$",
+    "explorerTxLink": "https://explorer.feelcoin.org/tx/{0}"
+  },
   "monero": {
     "name": "Monero",
     "canonicalName": "Monero",
@@ -8318,6 +8373,25 @@
     "explorerTxLink": "https://explorer.hoosat.fi/txs/{0}",
     "explorerAccountLink": "https://explorer.hoosat.fi/addresses/{0}"
   },
+  "zkas": {
+    "name": "ZKas",
+    "canonicalName": "ZKas",
+    "symbol": "ZKAS",
+    "family": "kaspa",
+    "website": "https://zkas.info/",
+    "market": "https://nonkyc.io/market/ZKAS_USDT",
+    "twitter": "",
+    "telegram": "",
+    "discord": "",
+    "github": "https://github.com/firecash/zkas-rusty",
+    "addressBech32Prefix": "zkas",
+    "addressBech32PrefixDevnet": "zkasdev",
+    "addressBech32PrefixSimnet": "zkassim",
+    "addressBech32PrefixTestnet": "zkastest",
+    "explorerBlockLink": "https://explorer.zkas.info/block/$hash$",
+    "explorerTxLink": "https://explorer.zkas.info/tx/{0}",
+    "explorerAccountLink": "https://explorer.zkas.info/"
+  },
   "kaspa": {
     "name": "Kaspa",
     "canonicalName": "Kaspa",
@@ -8577,6 +8651,30 @@
     "explorerTxLink": "",
     "explorerAccountLink": ""
   },
+  "logancoin": {
+    "name": "Logan Coin",
+    "canonicalName": "Logan Coin",
+    "symbol": "LGN",
+    "family": "zano",
+    "website": "https://github.com/minershaven/logancoin",
+    "github": "https://github.com/minershaven/logancoin",
+    "market": "",
+    "twitter": "",
+    "telegram": "",
+    "discord": "",
+    "hash": "progpowz",
+    "hashVariant": 0,
+    "blobType": 0,
+    "difficultyTarget": 120,
+    "smallestUnit": 1000000000000,
+    "addressPrefix": 117,
+    "addressPrefixIntegrated": 2807,
+    "addressV2PrefixIntegrated": 2935,
+    "auditableAddressPrefix": 8391,
+    "auditableAddressIntegratedPrefix": 18249,
+    "explorerBlockLink": "",
+    "explorerTxLink": ""
+  },
   "zano": {
     "name": "Zano",
     "canonicalName": "Zano",
@@ -8600,5 +8698,22 @@
     "auditableAddressIntegratedPrefix": 35401,
     "explorerBlockLink": "https://explorer.zano.org/block/$hash$",
     "explorerTxLink": "https://explorer.zano.org/transaction/{0}"
+  },
+  "qrl": {
+    "name": "QRL",
+    "canonicalName": "Quantum Resistant Ledger",
+    "symbol": "QRL",
+    "family": "cryptonote",
+    "website": "https://www.theqrl.org/",
+    "market": "https://coinmarketcap.com/currencies/quantum-resistant-ledger/",
+    "github": "https://github.com/theQRL/QRL",
+    "hash": "randomx",
+    "hashVariant": 0,
+    "blobType": 0,
+    "smallestUnit": 1000000000,
+    "addressFormat": "qrl",
+    "explorerBlockLink": "https://explorer.theqrl.org/block/$height$",
+    "explorerTxLink": "https://explorer.theqrl.org/tx/{0}",
+    "explorerAccountLink": "https://explorer.theqrl.org/a/{0}"
   }
 }

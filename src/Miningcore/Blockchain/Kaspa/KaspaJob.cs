@@ -57,6 +57,11 @@ public class KaspaJob
 {
     protected IMasterClock clock;
     protected double shareMultiplier;
+
+    /// <summary>
+    /// Hash target of a difficulty 1 share. A share at difficulty D must be at or below this divided by D.
+    /// </summary>
+    public BigInteger ShareDiff1 { get; set; } = KaspaConstants.Diff1b;
     public kaspad.RpcBlock BlockTemplate { get; protected set; }
     public double Difficulty { get; protected set; }
     public string JobId { get; protected set; }
@@ -283,7 +288,7 @@ public class KaspaJob
         //throw new StratumException(StratumError.LowDifficultyShare, $"nonce: {nonce} ||| hashCoinbaseBytes: {hashCoinbaseBytes.ToHexString()} ||| BigInteger: {targetHashCoinbaseBytes.ToBigInteger()} ||| Target: {hashCoinbaseBytesValue} - [stratum: {KaspaUtils.DifficultyToTarget(context.Difficulty)} - blockTemplate: {blockTargetValue}] ||| BigToCompact: {KaspaUtils.BigToCompact(targetHashCoinbaseBytes.ToBigInteger())} - [stratum: {KaspaUtils.BigToCompact(KaspaUtils.DifficultyToTarget(context.Difficulty))} - blockTemplate: {BlockTemplate.Header.Bits}] ||| shareDiff: {(double) new BigRational(KaspaConstants.Diff1b, targetHashCoinbaseBytes.ToBigInteger()) * shareMultiplier} - [stratum: {context.Difficulty} - blockTemplate: {KaspaUtils.TargetToDifficulty(KaspaUtils.CompactToBig(BlockTemplate.Header.Bits)) * (double) KaspaConstants.MinHash}]");
 
         // calc share-diff
-        var shareDiff = (double) new BigRational(KaspaConstants.Diff1b, targetHashCoinbaseBytes.ToBigInteger()) * shareMultiplier;
+        var shareDiff = (double) new BigRational(ShareDiff1, targetHashCoinbaseBytes.ToBigInteger()) * shareMultiplier;
 
         // diff check
         var stratumDifficulty = context.Difficulty;

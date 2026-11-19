@@ -45,6 +45,19 @@ public class KaspaPool : PoolBase
     private KaspaPoolConfigExtra extraPoolConfig;
     private KaspaCoinTemplate coin;
     
+    /// <summary>
+    /// Whole difficulties go out as integers ("8192", not "8192.0"), as every other Kaspa pool sends them.
+    /// A client that reads the value as an integer cannot parse the second form.
+    /// </summary>
+    private static object StratumDifficulty(double difficulty)
+    {
+        // (the two results must stay boxed separately: a bare conditional would turn the integer back into a double)
+        if(difficulty >= 1 && difficulty < long.MaxValue && Math.Floor(difficulty) == difficulty)
+            return (long) difficulty;
+
+        return difficulty;
+    }
+
     protected virtual async Task OnSubscribeAsync(StratumConnection connection, Timestamped<JsonRpcRequest> tsRequest, CancellationToken ct)
     {
         var request = tsRequest.Value;
@@ -72,11 +85,7 @@ public class KaspaPool : PoolBase
             // [We miss you Oliver <3 We miss you so much <3 Respect the goddamn standards Nicehash :(]
             var response = new JsonRpcResponse<object[]>(data, request.Id);
 
-            if(poolConfig.EnableAsicBoost == true)
-            {
-                response.Extra = new Dictionary<string, object>();
-                response.Extra["error"] = null;
-            }
+            response.Extra = new Dictionary<string, object> { ["error"] = null };
 
             await connection.RespondAsync(response);
         }
@@ -86,7 +95,7 @@ public class KaspaPool : PoolBase
             var data = new object[]
             {
                 true,
-                "KaspaStratum/1.0.0",
+                "EthereumStratum/1.0.0",
             };
 
             // Nicehash's stupid validator insists on "error" property present
@@ -94,11 +103,9 @@ public class KaspaPool : PoolBase
             // [Respect the goddamn standards Nicehack :(]
             var response = new JsonRpcResponse<object[]>(data, request.Id);
 
-            if(context.IsNicehash || poolConfig.EnableAsicBoost == true)
-            {
-                response.Extra = new Dictionary<string, object>();
-                response.Extra["error"] = null;
-            }
+            // every reply carries "error": null, as the reference Kaspa stratum bridge does: strict clients
+            // (rental services among them) treat a reply without it as a failed login
+            response.Extra = new Dictionary<string, object> { ["error"] = null };
 
             await connection.RespondAsync(response);
             await connection.NotifyAsync(KaspaStratumMethods.SetExtraNonce, manager.GetSubscriberData(connection));
@@ -140,7 +147,7 @@ public class KaspaPool : PoolBase
         else
         {
             context.IsAuthorized = true;
-            logger.Info(() => $"[{connection.ConnectionId}]{(!string.IsNullOrEmpty(context.UserAgent) ? $"[{context.UserAgent}]" : string.Empty)} worker: {minerName} => {KaspaConstants.KaspaAddressType[kaspaAddressUtility.KaspaAddress.Version()]}");
+            logger.Info(() => $"[{connection.ConnectionId}]{(!string.IsNullOrEmpty(context.UserAgent) ? $"[{context.UserAgent}]" : string.Empty)} worker: {minerName} => {(kaspaAddressUtility.KaspaAddress != null ? KaspaConstants.KaspaAddressType[kaspaAddressUtility.KaspaAddress.Version()] : "Shielded Address")}");
         }
 
         context.Miner = minerName;
@@ -153,11 +160,7 @@ public class KaspaPool : PoolBase
             // [Respect the goddamn standards Nicehack :(]
             var response = new JsonRpcResponse<object>(context.IsAuthorized, request.Id);
 
-            if(context.IsNicehash || poolConfig.EnableAsicBoost == true)
-            {
-                response.Extra = new Dictionary<string, object>();
-                response.Extra["error"] = null;
-            }
+            response.Extra = new Dictionary<string, object> { ["error"] = null };
 
             // respond
             await connection.RespondAsync(response);
@@ -205,7 +208,7 @@ public class KaspaPool : PoolBase
             var minerJobParams = CreateWorkerJob(connection);
 
             // send intial update
-            await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { context.Difficulty });
+            await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { StratumDifficulty(context.Difficulty) });
             await SendJob(connection, context, minerJobParams);
         }
 
@@ -278,11 +281,7 @@ public class KaspaPool : PoolBase
             // [Respect the goddamn standards Nicehack :(]
             var response = new JsonRpcResponse<object>(true, request.Id);
 
-            if(context.IsNicehash || poolConfig.EnableAsicBoost == true)
-            {
-                response.Extra = new Dictionary<string, object>();
-                response.Extra["error"] = null;
-            }
+            response.Extra = new Dictionary<string, object> { ["error"] = null };
 
             await connection.RespondAsync(response);
 
@@ -335,7 +334,7 @@ public class KaspaPool : PoolBase
 
             // varDiff: if the client has a pending difficulty change, apply it now
             if(context.ApplyPendingDifficulty())
-                await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { context.Difficulty });
+                await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { StratumDifficulty(context.Difficulty) });
 
             await SendJob(connection, context, minerJobParams);
         }));
@@ -373,6 +372,14 @@ public class KaspaPool : PoolBase
     }
 
     public override double ShareMultiplier => coin.ShareMultiplier;
+
+    /// <summary>
+    /// Factor that turns stored share difficulty into hashes comparable with the stored network
+    /// difficulty, the same factor KaspaPayoutHandler.AdjustBlockEffort applies to block effort.
+    /// </summary>
+    public double EffortShareConst => ShareMultiplier * (coin.Symbol == "SPR"
+        ? SpectreConstants.Pow2xDiff1TargetNumZero * (double) SpectreConstants.MinHash
+        : KaspaConstants.Pow2xDiff1TargetNumZero * (double) KaspaConstants.MinHash);
 
     #region Overrides
 
@@ -499,7 +506,7 @@ public class KaspaPool : PoolBase
             var minerJobParams = CreateWorkerJob(connection);
 
             // send varDiff update
-            await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { context.Difficulty });
+            await connection.NotifyAsync(KaspaStratumMethods.SetDifficulty, new object[] { StratumDifficulty(context.Difficulty) });
             await SendJob(connection, context, minerJobParams);
         }
     }

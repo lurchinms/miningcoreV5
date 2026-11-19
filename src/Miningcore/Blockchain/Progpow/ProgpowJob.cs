@@ -147,6 +147,28 @@ public class ProgpowJob : BitcoinJob
         }
     }
 
+    /// <summary>
+    /// When the coinbase carries a segwit witness commitment, the block must also carry the coinbase witness
+    /// (one 32-byte zero "witness nonce"). Bitcoin/Litecoin nodes add it in submitblock; Ravencoin-family nodes
+    /// (Neoxa, Aurora Borealis) don't and reject the block with "bad-witness-nonce-size". The coinbase txid,
+    /// and so the merkle root, is unchanged: it is computed without witness data.
+    /// </summary>
+    protected byte[] WithCoinbaseWitness(byte[] coinbase)
+    {
+        if(string.IsNullOrEmpty(BlockTemplate.DefaultWitnessCommitment) || coinbase.Length < 8)
+            return coinbase;
+
+        using var stream = new MemoryStream();
+        stream.Write(coinbase, 0, 4);                        // version
+        stream.Write(new byte[] { 0x00, 0x01 });             // segwit marker + flag
+        stream.Write(coinbase, 4, coinbase.Length - 8);      // inputs + outputs
+        stream.WriteByte(0x01);                              // 1 witness item for the single input
+        stream.WriteByte(0x20);                              // 32 bytes
+        stream.Write(new byte[32]);                          // witness nonce (zeros, as in the commitment)
+        stream.Write(coinbase, coinbase.Length - 4, 4);      // locktime
+        return stream.ToArray();
+    }
+
     protected virtual byte[] SerializeBlock(byte[] header, byte[] coinbase, ulong nonce, byte[] mixHash)
     {
         var rawTransactionBuffer = BuildRawTransactionBuffer();
@@ -161,7 +183,7 @@ public class ProgpowJob : BitcoinJob
             bs.ReadWrite(mixHash);
             bs.ReadWriteAsVarInt(ref transactionCount);
 
-            bs.ReadWrite(coinbase);
+            bs.ReadWrite(WithCoinbaseWitness(coinbase));
             bs.ReadWrite(rawTransactionBuffer);
 
             return stream.ToArray();
