@@ -2,7 +2,10 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using System.Text.RegularExpressions;
+using System.Net.Http;
 using Dapper;
+using Miningcore.Blockchain.Kaspa;
+using Miningcore.Blockchain.Kaspa.Configuration;
 using Miningcore.Blockchain.Pearl.Configuration;
 using Miningcore.Blockchain.Quantus;
 using Miningcore.Blockchain.Quantus.Configuration;
@@ -18,6 +21,7 @@ using Miningcore.Rpc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NLog;
+using kaspaWalletd = Miningcore.Blockchain.Kaspa.KaspaWalletd;
 
 namespace Miningcore.Api.Admin;
 
@@ -206,6 +210,30 @@ public class WalletAdmin
                     break;
                 }
 
+                case CoinFamily.Kaspa when IsZkas(pc):
+                {
+                    var status = await ZkasStatusAsync(pc, timeout.Token);
+
+                    info.Address = status.Value<string>("address") ?? info.Address;
+                    info.Available = ZkasSompi(status["spendable_sompi"]) / KaspaConstants.SmallestUnit;
+                    info.Pending = ZkasSompi(status["maturing_sompi"]) / KaspaConstants.SmallestUnit;
+
+                    if(status.Value<bool?>("synced") != true)
+                        info.Error = "wallet is still syncing";
+
+                    break;
+                }
+
+                case CoinFamily.Kaspa:
+                {
+                    var wallet = KaspaWallet(pc);
+                    var b = await wallet.GetBalanceAsync(new kaspaWalletd.GetBalanceRequest(), cancellationToken: timeout.Token);
+
+                    info.Available = b.Available / KaspaConstants.SmallestUnit;
+                    info.Pending = b.Pending / KaspaConstants.SmallestUnit;
+                    break;
+                }
+
                 default:
                     throw new Exception($"wallet balance not supported for {pc.Template.Family}");
             }
@@ -251,6 +279,8 @@ public class WalletAdmin
                 CoinFamily.Zano => await SendZanoAsync(pc, address, amount, ct),
                 CoinFamily.Cryptonote => await SendCryptonoteAsync(pc, address, amount, ct),
                 CoinFamily.Quantus => await SendQuantusAsync(pc, address, amount, ct),
+                CoinFamily.Kaspa when IsZkas(pc) => await SendZkasAsync(pc, address, amount, ct),
+                CoinFamily.Kaspa => await SendKaspaAsync(pc, address, amount, ct),
                 _ => throw new InvalidOperationException($"sending not supported for {pc.Template.Family}")
             };
 
@@ -440,6 +470,141 @@ public class WalletAdmin
             }
         }
     }
+
+    #region Kaspa and ZKas
+
+    // ZKas pays through zkas-walletd's REST API; Kaspa through kaspawallet's gRPC daemon
+    private static bool IsZkas(PoolConfig pc) => pc.Template.Symbol.Equals("ZKAS", StringComparison.OrdinalIgnoreCase);
+
+    private static DaemonEndpointConfig WalletEndpoint(PoolConfig pc) =>
+        pc.Daemons.FirstOrDefault(x => x.Category?.ToLower() == KaspaConstants.WalletDaemonCategory)
+        ?? throw new InvalidOperationException($"no wallet daemon configured for {pc.Id}");
+
+    private static KaspaPaymentProcessingConfigExtra KaspaPayExtra(PoolConfig pc) =>
+        pc.PaymentProcessing?.Extra?.SafeExtensionDataAs<KaspaPaymentProcessingConfigExtra>() ?? new();
+
+    private static kaspaWalletd.KaspaWalletdRPC.KaspaWalletdRPCClient KaspaWallet(PoolConfig pc)
+    {
+        var extra = pc.Extra.SafeExtensionDataAs<KaspaPoolConfigExtra>();
+
+        return KaspaClientFactory.CreateKaspaWalletdRPCClient(new[] { WalletEndpoint(pc) },
+            extra?.ProtobufWalletRpcServiceName ?? KaspaConstants.ProtobufWalletRpcServiceName);
+    }
+
+    private static string CheckKaspaAddress(PoolConfig pc, string address)
+    {
+        var prefix = pc.Template.As<KaspaCoinTemplate>()?.AddressBech32Prefix ?? "kaspa";
+        address = address.ToLowerInvariant();
+
+        if(!address.StartsWith(prefix + ":", StringComparison.Ordinal) || address.Length < prefix.Length + 40)
+            throw new ArgumentException($"Not a valid {pc.Template.Symbol} address (it should start with {prefix}:)");
+
+        return address;
+    }
+
+    private async Task<string> SendKaspaAsync(PoolConfig pc, string address, decimal amount, CancellationToken ct)
+    {
+        address = CheckKaspaAddress(pc, address);
+
+        var wallet = KaspaWallet(pc);
+        var pay = KaspaPayExtra(pc);
+
+        var create = new kaspaWalletd.CreateUnsignedTransactionsRequest
+        {
+            Address = address,
+            Amount = (ulong) Math.Floor(amount * KaspaConstants.SmallestUnit),
+            UseExistingChangeAddress = false,
+            IsSendAll = false
+        };
+
+        if(!string.IsNullOrEmpty(pay.VersionEnablingMaxFee))
+            create.FeePolicy = new kaspaWalletd.FeePolicy { MaxFee = pay.MaxFee ?? 20000 };
+
+        var unsigned = await wallet.CreateUnsignedTransactionsAsync(create, cancellationToken: ct);
+
+        if(unsigned.UnsignedTransactions.Count == 0)
+            throw new InvalidOperationException("the wallet did not create a transaction (not enough spendable balance?)");
+
+        var sign = new kaspaWalletd.SignRequest { Password = pay.WalletPassword };
+        sign.UnsignedTransactions.Add(unsigned.UnsignedTransactions);
+        var signed = await wallet.SignAsync(sign, cancellationToken: ct);
+
+        var broadcast = new kaspaWalletd.BroadcastRequest();
+        broadcast.Transactions.Add(signed.SignedTransactions);
+        var sent = await wallet.BroadcastAsync(broadcast, cancellationToken: ct);
+
+        if(sent.TxIDs.Count == 0)
+            throw new InvalidOperationException("the wallet did not return a transaction id (check the wallet before trying again)");
+
+        return string.Join(",", sent.TxIDs);
+    }
+
+    private static HttpClient ZkasClient(PoolConfig pc, TimeSpan timeout)
+    {
+        var ep = WalletEndpoint(pc);
+        var token = KaspaPayExtra(pc).WalletToken;
+
+        if(string.IsNullOrEmpty(token))
+            throw new InvalidOperationException($"no walletToken configured for {pc.Id}");
+
+        var http = new HttpClient { BaseAddress = new Uri($"http://{ep.Host}:{ep.Port}"), Timeout = timeout };
+        http.DefaultRequestHeaders.Add("X-Wallet-Token", token);
+        return http;
+    }
+
+    private static decimal ZkasSompi(JToken token) =>
+        token == null || token.Type == JTokenType.Null ? 0 : decimal.Parse(token.ToString(), CultureInfo.InvariantCulture);
+
+    private static async Task<JObject> ZkasStatusAsync(PoolConfig pc, CancellationToken ct)
+    {
+        using var http = ZkasClient(pc, TimeSpan.FromSeconds(30));
+        using var response = await http.GetAsync("/api/status", ct);
+        var text = await response.Content.ReadAsStringAsync(ct);
+
+        if(!response.IsSuccessStatusCode)
+            throw new Exception($"zkas-walletd status failed ({(int) response.StatusCode}): {Tail(text)}");
+
+        return JObject.Parse(text);
+    }
+
+    private async Task<string> SendZkasAsync(PoolConfig pc, string address, decimal amount, CancellationToken ct)
+    {
+        address = CheckKaspaAddress(pc, address);
+
+        var body = new JObject
+        {
+            // a fresh id per send, so a retried request can never pay twice
+            ["request_id"] = $"admin-{pc.Id}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}",
+            ["payees"] = new JArray(new JObject { ["to"] = address, ["amount_sompi"] = (ulong) Math.Floor(amount * KaspaConstants.SmallestUnit) })
+        };
+
+        var maxFee = KaspaPayExtra(pc).MaxFee;
+        if(maxFee is > 0)
+            body["max_total_fee"] = maxFee.Value;
+
+        // proving a shielded transaction takes a while
+        using var http = ZkasClient(pc, TimeSpan.FromMinutes(10));
+        using var content = new StringContent(body.ToString(Formatting.None), System.Text.Encoding.UTF8, "application/json");
+        using var response = await http.PostAsync("/api/wallet/send_many", content, ct);
+        var text = await response.Content.ReadAsStringAsync(ct);
+
+        JObject answer;
+        try { answer = JObject.Parse(text); }
+        catch { answer = new JObject { ["error"] = Tail(text) }; }
+
+        var txid = (answer["payee_txids"] as JArray)?.FirstOrDefault()?.Value<string>("txid");
+
+        if(!string.IsNullOrEmpty(txid))
+            return txid;
+
+        if(answer.Value<bool?>("outcome_unknown") == true)
+            throw new InvalidOperationException($"zkas-walletd could not confirm transaction {answer.Value<string>("txid")}" +
+                " (check the wallet history before trying again, it may still have gone through)");
+
+        throw new InvalidOperationException($"zkas-walletd refused the send ({(int) response.StatusCode}): {answer.Value<string>("error") ?? Tail(text)}");
+    }
+
+    #endregion
 
     private RpcClient Rpc(PoolConfig pc, string category)
     {
