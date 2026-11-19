@@ -588,7 +588,14 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
         var extraNonce1Size = GetExtraNonce1Size();
 
         // assign unique ExtraNonce1 to worker (miner)
-        context.ExtraNonce1 = extraNonceProvider.Next();
+        if(IsSmallExtraNonce1Port(worker))
+        {
+            context.ExtraNonce1 = NextSmallExtraNonce1();
+            extraNonce1Size = 1;
+        }
+
+        else
+            context.ExtraNonce1 = extraNonceProvider.Next();
 
         // setup response data
         var responseData = new object[]
@@ -604,6 +611,41 @@ public class KaspaJobManager : JobManagerBase<KaspaJob>
     {
         return extraPoolConfig?.ExtraNonce1Size ?? 2;
     }
+
+    #region 1-byte ExtraNonce1 for rental ports
+
+    // NiceHash and MiningRigRentals need at least 7 bytes of ExtraNonce2, so on the ports listed in
+    // smallExtraNonce1Ports a connection gets a 1-byte ExtraNonce1. The regular provider always puts
+    // this instance's id in the top 4 bits of its first byte, so the 1-byte values skip that nibble
+    // and never overlap the nonce space of miners on the other ports (240 distinct values).
+    private readonly object smallNonceLock = new();
+    private int? reservedNibble;
+    private int smallNonceCounter;
+
+    private bool IsSmallExtraNonce1Port(StratumConnection worker)
+    {
+        var ports = extraPoolConfig?.SmallExtraNonce1Ports;
+        return ports is { Length: > 0 } && worker.LocalEndpoint != null && ports.Contains(worker.LocalEndpoint.Port);
+    }
+
+    private string NextSmallExtraNonce1()
+    {
+        lock(smallNonceLock)
+        {
+            // the regular provider's id nibble: the first hex digit of any value it hands out
+            reservedNibble ??= Convert.ToInt32(extraNonceProvider.Next()[..1], 16);
+
+            int value;
+            do
+            {
+                value = smallNonceCounter++ & 0xff;
+            } while(value >> 4 == reservedNibble);
+
+            return value.ToString("x2");
+        }
+    }
+
+    #endregion
 
     public virtual async ValueTask<Share> SubmitShareAsync(StratumConnection worker, object submission, CancellationToken ct)
     {

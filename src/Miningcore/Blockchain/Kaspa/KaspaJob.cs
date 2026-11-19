@@ -354,7 +354,8 @@ public class KaspaJob
         // Add extranonce to nonce if enabled and submitted nonce is shorter than expected (16 - <extranonce length> characters)
         if (nonce.Length <= (KaspaConstants.NonceLength - context.ExtraNonce1.Length))
         {
-            nonce = context.ExtraNonce1.PadRight(KaspaConstants.NonceLength - context.ExtraNonce1.Length, '0') + nonce;
+            // ExtraNonce1 first, then the miner's ExtraNonce2 padded to fill the rest of the 8 bytes
+            nonce = context.ExtraNonce1 + nonce.PadLeft(KaspaConstants.NonceLength - context.ExtraNonce1.Length, '0');
         }
         
         // dupe check

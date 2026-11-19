@@ -456,7 +456,7 @@ public class KaspaPool : PoolBase
                     var data = new object[]
                     {
                         context.ExtraNonce1,
-                        KaspaConstants.ExtranoncePlaceHolderLength - manager.GetExtraNonce1Size(),
+                        KaspaConstants.ExtranoncePlaceHolderLength - (context.ExtraNonce1?.Length / 2 ?? manager.GetExtraNonce1Size()),
                     };
                     
                     await connection.NotifyAsync(KaspaStratumMethods.SetExtraNonce, data);
