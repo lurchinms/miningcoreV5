@@ -8423,9 +8423,9 @@
     "addressBech32PrefixDevnet": "zkasdev",
     "addressBech32PrefixSimnet": "zkassim",
     "addressBech32PrefixTestnet": "zkastest",
-    "explorerBlockLink": "https://explorer.zkas.info/block/$hash$",
-    "explorerTxLink": "https://explorer.zkas.info/tx/{0}",
-    "explorerAccountLink": "https://explorer.zkas.info/"
+    "explorerBlockLink": "https://explorer.zkas.info/blocks/$hash$",
+    "explorerTxLink": "https://explorer.zkas.info/transactions/{0}",
+    "explorerAccountLink": "https://explorer.zkas.info/addresses/{0}"
   },
   "kaspa": {
     "name": "Kaspa",
