@@ -1853,6 +1853,41 @@
     "explorerTxLink": "https://chainz.cryptoid.info/dime/tx.dws?{0}.htm",
     "explorerAccountLink": "https://chainz.cryptoid.info/dime/address.dws?{0}.htm"
   },
+  "soqucoin": {
+    "name": "Soqucoin",
+    "canonicalName": "Soqucoin",
+    "symbol": "SOQ",
+    "family": "bitcoin",
+    "website": "https://soqu.org/",
+    "market": "",
+    "twitter": "",
+    "telegram": "",
+    "discord": "",
+    "github": "https://github.com/soqucoin/soqucoin",
+    "coinbaseHasher": {
+      "hash": "sha256d"
+    },
+    "headerHasher": {
+      "hash": "scrypt",
+      "args": [
+        1024,
+        1
+      ]
+    },
+    "blockHasher": {
+      "hash": "reverse",
+      "args": [
+        {
+          "hash": "sha256d"
+        }
+      ]
+    },
+    "shareMultiplier": 65536,
+    "coinbaseMinConfimations": 288,
+    "explorerBlockLink": "https://explorer.soqu.org/block-height/$height$",
+    "explorerTxLink": "https://explorer.soqu.org/tx/{0}",
+    "explorerAccountLink": "https://explorer.soqu.org/address/{0}"
+  },
   "dogecoin": {
     "name": "Dogecoin",
     "canonicalName": "Dogecoin",
@@ -8038,6 +8073,7 @@
     "hashVariant": 0,
     "blobType": 0,
     "smallestUnit": 1000000000000,
+    "blockrewardMultiplier": 0.98,
     "addressPrefix": 84,
     "addressPrefixStagenet": 96,
     "addressPrefixTestnet": 90,
@@ -8388,9 +8424,9 @@
     "addressBech32PrefixDevnet": "zkasdev",
     "addressBech32PrefixSimnet": "zkassim",
     "addressBech32PrefixTestnet": "zkastest",
-    "explorerBlockLink": "https://explorer.zkas.info/block/$hash$",
-    "explorerTxLink": "https://explorer.zkas.info/tx/{0}",
-    "explorerAccountLink": "https://explorer.zkas.info/"
+    "explorerBlockLink": "https://explorer.zkas.info/blocks/$hash$",
+    "explorerTxLink": "https://explorer.zkas.info/transactions/{0}",
+    "explorerAccountLink": "https://explorer.zkas.info/addresses/{0}"
   },
   "kaspa": {
     "name": "Kaspa",

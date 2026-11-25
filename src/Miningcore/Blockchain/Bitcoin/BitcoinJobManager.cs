@@ -123,6 +123,9 @@ public class BitcoinJobManager : BitcoinJobManagerBase<BitcoinJob>
         }
     }
 
+    // previous block hash of the last template seen by a pool without internal stratum
+    private string statsOnlyTip;
+
     protected override async Task<(bool IsNew, bool Force)> UpdateJob(CancellationToken ct, bool forceUpdate, string via = null, string json = null)
     {
         try
@@ -149,8 +152,27 @@ public class BitcoinJobManager : BitcoinJobManagerBase<BitcoinJob>
                     (job.BlockTemplate?.PreviousBlockhash != blockTemplate.PreviousBlockhash ||
                         blockTemplate.Height > job.BlockTemplate?.Height));
 
-            if(isNew)
+            if(isNew && poolConfig.EnableInternalStratum != false)
                 messageBus.NotifyChainHeight(poolConfig.Id, blockTemplate.Height, poolConfig.Template);
+
+            // without internal stratum nobody mines these jobs: keep the chain stats current and stop here
+            if(poolConfig.EnableInternalStratum == false)
+            {
+                var tipIsNew = blockTemplate != null && blockTemplate.PreviousBlockhash != statsOnlyTip;
+
+                if(tipIsNew)
+                {
+                    messageBus.NotifyChainHeight(poolConfig.Id, blockTemplate.Height, poolConfig.Template);
+                    statsOnlyTip = blockTemplate.PreviousBlockhash;
+                    BlockchainStats.LastNetworkBlockTime = clock.Now;
+                    BlockchainStats.BlockHeight = blockTemplate.Height;
+                    BlockchainStats.NetworkDifficulty = new Target(System.Numerics.BigInteger.Parse(blockTemplate.Target, System.Globalization.NumberStyles.HexNumber)).Difficulty;
+                    BlockchainStats.NextNetworkTarget = blockTemplate.Target;
+                    BlockchainStats.NextNetworkBits = blockTemplate.Bits;
+                }
+
+                return (tipIsNew, false);
+            }
 
             if(isNew || forceUpdate)
             {
