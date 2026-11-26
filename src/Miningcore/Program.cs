@@ -692,9 +692,8 @@ public class Program : BackgroundService
  █████     █████ ▒▒█████████  ▒▒█████████  ██████████
 ▒▒▒▒▒     ▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒    ▒▒▒▒▒▒▒▒▒  ▒▒▒▒▒▒▒▒▒▒ 
 ");
-        Console.WriteLine("Miningcore by MinersHaven");
-        Console.WriteLine("A maintained Miningcore from theminershaven.org\n");
-        Console.WriteLine("https://github.com/minershaven/miningcore\n");
+        Console.WriteLine("Miningcore by Kriptokyng");
+        
     }
 
     private static void ConfigureLogging()
